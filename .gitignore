@@ -1,0 +1,5 @@
+*.db
+config.ini
+venv/
+*.pyc
+__pycache__/

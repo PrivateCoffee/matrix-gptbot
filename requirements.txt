@@ -1,0 +1,4 @@
+openai
+matrix-nio[e2e]
+markdown2[all]
+tiktoken
