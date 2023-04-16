@@ -27,6 +27,9 @@ The bot can be run with `python -m gptbot`. If required, activate a venv first.
 You may want to run the bot in a screen or tmux session, or use a process 
 manager like systemd.
 
+Once it is running, just invite it to a room and it will start responding to
+messages.
+
 ## License
 
 This project is licensed under the terms of the MIT license.

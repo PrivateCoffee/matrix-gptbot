@@ -77,7 +77,7 @@ async def fetch_last_n_messages(room_id, n=20):
     room = await client.join(room_id)
     messages = []
 
-    logging(f"Fetching last {n} messages from room {room_id}...")
+    logging(f"Fetching last {n} messages from room {room_id} (starting at {SYNC_TOKEN})...")
 
     response = await client.room_messages(
         room_id=room_id,
@@ -116,7 +116,7 @@ def truncate_messages_to_fit_tokens(messages, max_tokens=MAX_TOKENS):
     total_tokens = len(SYSTEM_MESSAGE) + 1
     truncated_messages = []
 
-    for message in messages[0] + reversed(messages[1:]):
+    for message in [messages[0]] + list(reversed(messages[1:])):
         content = message["content"]
         tokens = len(encoding.encode(content)) + 1
         if total_tokens + tokens > max_tokens:
@@ -124,7 +124,7 @@ def truncate_messages_to_fit_tokens(messages, max_tokens=MAX_TOKENS):
         total_tokens += tokens
         truncated_messages.append(message)
 
-    return list(truncated_messages[0] + reversed(truncated_messages[1:]))
+    return [truncated_messages[0]] + list(reversed(truncated_messages[1:]))
 
 
 async def message_callback(room: MatrixRoom, event: RoomMessageText):
@@ -220,6 +220,7 @@ async def accept_pending_invites():
 
 
 async def sync_cb(response):
+    global SYNC_TOKEN
     logging(f"Sync response received (next batch: {response.next_batch})")
     SYNC_TOKEN = response.next_batch
 
