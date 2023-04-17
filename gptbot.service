@@ -1,0 +1,15 @@
+[Unit]
+Description=GPTbot - A GPT bot for Matrix
+Requires=network.target
+
+[Service]
+Type=simple
+User=gptbot
+Group=gptbot
+WorkingDirectory=/opt/gptbot
+ExecStart=/opt/gptbot/venv/bin/python3 -m gptbot
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
