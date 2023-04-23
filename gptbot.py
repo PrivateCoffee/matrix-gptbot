@@ -3,6 +3,7 @@ import inspect
 import logging
 import signal
 import random
+import uuid
 
 import openai
 import asyncio
@@ -10,9 +11,10 @@ import markdown2
 import tiktoken
 import duckdb
 
-from nio import AsyncClient, RoomMessageText, MatrixRoom, Event, InviteEvent
+from nio import AsyncClient, RoomMessageText, MatrixRoom, Event, InviteEvent, AsyncClientConfig, MegolmEvent, GroupEncryptionError, EncryptionError, HttpClient, Api
 from nio.api import MessageDirection
-from nio.responses import RoomMessagesError, SyncResponse, RoomRedactError
+from nio.responses import RoomMessagesError, SyncResponse, RoomRedactError, WhoamiResponse, JoinResponse, RoomSendResponse
+from nio.crypto import Olm
 
 from configparser import ConfigParser
 from datetime import datetime
@@ -20,6 +22,7 @@ from argparse import ArgumentParser
 from typing import List, Dict, Union, Optional
 
 from commands import COMMANDS
+from classes import DuckDBStore
 
 
 def logging(message: str, log_level: str = "info"):
@@ -85,6 +88,13 @@ async def fetch_last_n_messages(room_id: str, n: Optional[int] = None,
     for event in response.chunk:
         if len(messages) >= n:
             break
+        if isinstance(event, MegolmEvent):
+            try:
+                event = await client.decrypt_event(event)
+            except (GroupEncryptionError, EncryptionError):
+                logging(
+                    f"Could not decrypt message {event.event_id} in room {room_id}", "error")
+                continue
         if isinstance(event, RoomMessageText):
             if event.body.startswith("!gptbot ignoreolder"):
                 break
@@ -162,14 +172,7 @@ async def process_query(room: MatrixRoom, event: RoomMessageText, **kwargs):
 
         # Convert markdown to HTML
 
-        markdowner = markdown2.Markdown(extras=["fenced-code-blocks"])
-        formatted_body = markdowner.convert(response)
-
-        message = await client.room_send(
-            room.room_id, "m.room.message",
-            {"msgtype": "m.text", "body": response,
-             "format": "org.matrix.custom.html", "formatted_body": formatted_body}
-        )
+        message = await send_message(room, response)
 
         if database:
             logging("Logging tokens used...")
@@ -183,11 +186,8 @@ async def process_query(room: MatrixRoom, event: RoomMessageText, **kwargs):
         # Send a notice to the room if there was an error
 
         logging("Error during GPT API call - sending notice to room")
-
-        await client.room_send(
-            room.room_id, "m.room.message", {
-                "msgtype": "m.notice", "body": "Sorry, I'm having trouble connecting to the GPT API right now. Please try again later."}
-        )
+        send_message(
+            room, "Sorry, I'm having trouble connecting to the GPT API right now. Please try again later.", True)
         print("No response from GPT API")
 
     await client.room_typing(room.room_id, False)
@@ -199,13 +199,33 @@ async def process_command(room: MatrixRoom, event: RoomMessageText, context: Opt
     logging(
         f"Received command {event.body} from {event.sender} in room {room.room_id}")
     command = event.body.split()[1] if event.body.split()[1:] else None
-    await COMMANDS.get(command, COMMANDS[None])(room, event, context)
+
+    message = await COMMANDS.get(command, COMMANDS[None])(room, event, context)
+
+    if message:
+        room_id, event, content = message
+        await send_message(context["client"].rooms[room_id], content["body"],
+                           True if content["msgtype"] == "m.notice" else False, context["client"])
 
 
-async def message_callback(room: MatrixRoom, event: RoomMessageText, **kwargs):
+async def message_callback(room: MatrixRoom, event: RoomMessageText | MegolmEvent, **kwargs):
     context = kwargs.get("context") or CONTEXT
-    
+
     logging(f"Received message from {event.sender} in room {room.room_id}")
+
+    if isinstance(event, MegolmEvent):
+        try:
+            event = await context["client"].decrypt_event(event)
+        except Exception as e:
+            try:
+                logging("Requesting new encryption keys...")
+                await context["client"].request_room_key(event)
+            except:
+                pass
+
+            logging(f"Error decrypting message: {e}", "error")
+            await send_message(room, "Sorry, I couldn't decrypt that message. Please try again later or switch to a room without encryption.", True, context["client"])
+            return
 
     if event.sender == context["client"].user_id:
         logging("Message is from bot itself - ignoring")
@@ -221,17 +241,68 @@ async def message_callback(room: MatrixRoom, event: RoomMessageText, **kwargs):
 
 
 async def room_invite_callback(room: MatrixRoom, event: InviteEvent, **kwargs):
-    client = kwargs.get("client") or CONTEXT["client"]
+    client: AsyncClient = kwargs.get("client") or CONTEXT["client"]
+
+    if room.room_id in client.rooms:
+        logging(f"Already in room {room.room_id} - ignoring invite")
+        return
 
     logging(f"Received invite to room {room.room_id} - joining...")
 
-    await client.join(room.room_id)
-    await client.room_send(
-        room.room_id,
-        "m.room.message",
-        {"msgtype": "m.text",
-            "body": "Hello! I'm a helpful assistant. How can I help you today?"}
+    response = await client.join(room.room_id)
+    if isinstance(response, JoinResponse):
+        await send_message(room, "Hello! I'm a helpful assistant. How can I help you today?", client)
+    else:
+        logging(f"Error joining room {room.room_id}: {response}", "error")
+
+
+async def send_message(room: MatrixRoom, message: str, notice: bool = False, client: Optional[AsyncClient] = None):
+    client = client or CONTEXT["client"]
+
+    markdowner = markdown2.Markdown(extras=["fenced-code-blocks"])
+    formatted_body = markdowner.convert(message)
+
+    msgtype = "m.notice" if notice else "m.text"
+
+    msgcontent = {"msgtype": msgtype, "body": message,
+                  "format": "org.matrix.custom.html", "formatted_body": formatted_body}
+
+    content = None
+
+    if client.olm and room.encrypted:
+        try:
+            if not room.members_synced:
+                responses = []
+                responses.append(await client.joined_members(room.room_id))
+
+            if client.olm.should_share_group_session(room.room_id):
+                try:
+                    event = client.sharing_session[room.room_id]
+                    await event.wait()
+                except KeyError:
+                    await client.share_group_session(
+                        room.room_id,
+                        ignore_unverified_devices=True,
+                    )
+
+            if msgtype != "m.reaction":
+                response = client.encrypt(room.room_id, "m.room.message", msgcontent)
+                msgtype, content = response
+
+        except Exception as e:
+            logging(
+                f"Error encrypting message: {e} - sending unencrypted", "error")
+            raise
+
+    if not content:
+        msgtype = "m.room.message"
+        content = msgcontent
+
+    method, path, data = Api.room_send(
+        client.access_token, room.room_id, msgtype, content, uuid.uuid4()
     )
+
+    return await client._send(RoomSendResponse, method, path, data, (room.room_id,))
 
 
 async def accept_pending_invites(client: Optional[AsyncClient] = None):
@@ -242,13 +313,14 @@ async def accept_pending_invites(client: Optional[AsyncClient] = None):
     for room_id in list(client.invited_rooms.keys()):
         logging(f"Joining room {room_id}...")
 
-        await client.join(room_id)
-        await client.room_send(
-            room_id,
-            "m.room.message",
-            {"msgtype": "m.text",
-                "body": "Hello! I'm a helpful assistant. How can I help you today?"}
-        )
+        response = await client.join(room_id)
+
+        if isinstance(response, JoinResponse):
+            logging(response, "debug")
+            rooms = await client.joined_rooms()
+            await send_message(rooms[room_id], "Hello! I'm a helpful assistant. How can I help you today?", client)
+        else:
+            logging(f"Error joining room {room_id}: {response}", "error")
 
 
 async def sync_cb(response, write_global: bool = True):
@@ -261,12 +333,95 @@ async def sync_cb(response, write_global: bool = True):
         CONTEXT["sync_token"] = SYNC_TOKEN
 
 
-async def main(client: Optional[AsyncClient] = None):
-    client = client or CONTEXT["client"]
+async def test_callback(room: MatrixRoom, event: Event, **kwargs):
+    logging(
+        f"Received event {event.__class__.__name__} in room {room.room_id}", "debug")
 
-    if not client.user_id:
-        whoami = await client.whoami()
-        client.user_id = whoami.user_id
+
+async def init(config: ConfigParser):
+    # Set up Matrix client
+    try:
+        assert "Matrix" in config
+        assert "Homeserver" in config["Matrix"]
+        assert "AccessToken" in config["Matrix"]
+    except:
+        logging("Matrix config not found or incomplete", "critical")
+        exit(1)
+
+    homeserver = config["Matrix"]["Homeserver"]
+    access_token = config["Matrix"]["AccessToken"]
+
+    device_id, user_id = await get_device_id(access_token, homeserver)
+
+    device_id = config["Matrix"].get("DeviceID", device_id)
+    user_id = config["Matrix"].get("UserID", user_id)
+
+    # Set up database
+    if "Database" in config and config["Database"].get("Path"):
+        database = CONTEXT["database"] = initialize_database(
+            config["Database"]["Path"])
+        matrix_store = DuckDBStore
+
+        client_config = AsyncClientConfig(
+            store_sync_tokens=True, encryption_enabled=True, store=matrix_store)
+
+    else:
+        client_config = AsyncClientConfig(
+            store_sync_tokens=True, encryption_enabled=False)
+
+    client = AsyncClient(
+        config["Matrix"]["Homeserver"], config=client_config)
+
+    if client.config.encryption_enabled:
+        client.store = client.config.store(
+            user_id,
+            device_id,
+            database
+        )
+        assert client.store
+
+        client.olm = Olm(client.user_id, client.device_id, client.store)
+        client.encrypted_rooms = client.store.load_encrypted_rooms()
+
+    CONTEXT["client"] = client
+
+    CONTEXT["client"].access_token = config["Matrix"]["AccessToken"]
+    CONTEXT["client"].user_id = user_id
+    CONTEXT["client"].device_id = device_id
+
+    # Set up GPT API
+    try:
+        assert "OpenAI" in config
+        assert "APIKey" in config["OpenAI"]
+    except:
+        logging("OpenAI config not found or incomplete", "critical")
+        exit(1)
+
+    openai.api_key = config["OpenAI"]["APIKey"]
+
+    if "Model" in config["OpenAI"]:
+        CONTEXT["model"] = config["OpenAI"]["Model"]
+
+    if "MaxTokens" in config["OpenAI"]:
+        CONTEXT["max_tokens"] = int(config["OpenAI"]["MaxTokens"])
+
+    if "MaxMessages" in config["OpenAI"]:
+        CONTEXT["max_messages"] = int(config["OpenAI"]["MaxMessages"])
+
+    # Listen for SIGTERM
+
+    def sigterm_handler(_signo, _stack_frame):
+        logging("Received SIGTERM - exiting...")
+        exit()
+
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
+
+async def main(config: Optional[ConfigParser] = None, client: Optional[AsyncClient] = None):
+    if not client and not CONTEXT.get("client"):
+        await init(config)
+
+    client = client or CONTEXT["client"]
 
     try:
         assert client.user_id
@@ -285,7 +440,9 @@ async def main(client: Optional[AsyncClient] = None):
     await client.sync(timeout=30000)
 
     client.add_event_callback(message_callback, RoomMessageText)
+    client.add_event_callback(message_callback, MegolmEvent)
     client.add_event_callback(room_invite_callback, InviteEvent)
+    client.add_event_callback(test_callback, Event)
 
     await accept_pending_invites()  # Accept pending invites
 
@@ -351,6 +508,31 @@ def initialize_database(path: os.PathLike):
         return database
 
 
+async def get_device_id(access_token, homeserver):
+    client = AsyncClient(homeserver)
+    client.access_token = access_token
+
+    logging(f"Obtaining device ID for access token {access_token}...", "debug")
+    response = await client.whoami()
+    if isinstance(response, WhoamiResponse):
+        logging(
+            f"Authenticated as {response.user_id}.")
+        user_id = response.user_id
+        devices = await client.devices()
+        device_id = devices.devices[0].id
+
+        await client.close()
+
+        return device_id, user_id
+
+    else:
+        logging(f"Failed to obtain device ID: {response}", "error")
+
+        await client.close()
+
+        return None, None
+
+
 if __name__ == "__main__":
     # Parse command line arguments
     parser = ArgumentParser()
@@ -362,54 +544,9 @@ if __name__ == "__main__":
     config = ConfigParser()
     config.read(args.config)
 
-    # Set up Matrix client
-    try:
-        assert "Matrix" in config
-        assert "Homeserver" in config["Matrix"]
-        assert "AccessToken" in config["Matrix"]
-    except:
-        logging("Matrix config not found or incomplete", "critical")
-        exit(1)
-
-    CONTEXT["client"] = AsyncClient(config["Matrix"]["Homeserver"])
-
-    CONTEXT["client"].access_token = config["Matrix"]["AccessToken"]
-    CONTEXT["client"].user_id = config["Matrix"].get("UserID")
-
-    # Set up GPT API
-    try:
-        assert "OpenAI" in config
-        assert "APIKey" in config["OpenAI"]
-    except:
-        logging("OpenAI config not found or incomplete", "critical")
-        exit(1)
-
-    openai.api_key = config["OpenAI"]["APIKey"]
-
-    if "Model" in config["OpenAI"]:
-        CONTEXT["model"] = config["OpenAI"]["Model"]
-
-    if "MaxTokens" in config["OpenAI"]:
-        CONTEXT["max_tokens"] = int(config["OpenAI"]["MaxTokens"])
-
-    if "MaxMessages" in config["OpenAI"]:
-        CONTEXT["max_messages"] = int(config["OpenAI"]["MaxMessages"])
-
-    # Set up database
-    if "Database" in config and config["Database"].get("Path"):
-        CONTEXT["database"] = initialize_database(config["Database"]["Path"])
-
-    # Listen for SIGTERM
-
-    def sigterm_handler(_signo, _stack_frame):
-        logging("Received SIGTERM - exiting...")
-        exit()
-
-    signal.signal(signal.SIGTERM, sigterm_handler)
-
     # Start bot loop
     try:
-        asyncio.run(main())
+        asyncio.run(main(config))
     except KeyboardInterrupt:
         logging("Received KeyboardInterrupt - exiting...")
     except SystemExit:

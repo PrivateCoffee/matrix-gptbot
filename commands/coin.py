@@ -3,12 +3,11 @@ from nio.rooms import MatrixRoom
 
 from random import SystemRandom
 
+
 async def command_coin(room: MatrixRoom, event: RoomMessageText, context: dict):
     context["logger"]("Flipping a coin...")
 
     heads = SystemRandom().choice([True, False])
 
-    await context["client"].room_send(
-        room.room_id, "m.room.message", {"msgtype": "m.notice",
-                                         "body": "Heads!" if heads else "Tails!"}
-    )
+    return room.room_id, "m.room.message", {"msgtype": "m.notice",
+                                            "body": "Heads!" if heads else "Tails!"}
