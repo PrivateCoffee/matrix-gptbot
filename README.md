@@ -6,6 +6,9 @@ to generate responses to messages in a Matrix room.
 It will also save a log of the spent tokens to a DuckDB database
 (database.db in the working directory, by default).
 
+Note that this bot does not yet support encryption - this is still work in
+progress.
+
 ## Installation
 
 Simply clone this repository and install the requirements.

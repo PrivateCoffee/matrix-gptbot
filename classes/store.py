@@ -1,6 +1,6 @@
 import duckdb
 
-from nio.store.database import MatrixStore, DeviceTrustState, OlmDevice, TrustState, InboundGroupSession, SessionStore, OlmSessions, GroupSessionStore, OutgoingKeyRequest, DeviceStore
+from nio.store.database import MatrixStore, DeviceTrustState, OlmDevice, TrustState, InboundGroupSession, SessionStore, OlmSessions, GroupSessionStore, OutgoingKeyRequest, DeviceStore, Session
 from nio.crypto import OlmAccount, OlmDevice
 
 from random import SystemRandom
@@ -24,150 +24,6 @@ class DuckDBStore(MatrixStore):
         self.conn = duckdb_conn
         self.user_id = user_id
         self.device_id = device_id
-        self._create_tables()
-
-    def _create_tables(self):
-        with self.conn.cursor() as cursor:
-            cursor.execute("""
-            DROP TABLE IF EXISTS sync_tokens CASCADE;
-            DROP TABLE IF EXISTS encrypted_rooms CASCADE;
-            DROP TABLE IF EXISTS outgoing_key_requests CASCADE;
-            DROP TABLE IF EXISTS forwarded_chains CASCADE;
-            DROP TABLE IF EXISTS outbound_group_sessions CASCADE;
-            DROP TABLE IF EXISTS inbound_group_sessions CASCADE;
-            DROP TABLE IF EXISTS olm_sessions CASCADE;
-            DROP TABLE IF EXISTS device_trust_state CASCADE;
-            DROP TABLE IF EXISTS keys CASCADE;
-            DROP TABLE IF EXISTS device_keys_key CASCADE;
-            DROP TABLE IF EXISTS device_keys CASCADE;
-            DROP TABLE IF EXISTS accounts CASCADE;
-            """)
-
-            # Create accounts table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS accounts (
-                id INTEGER PRIMARY KEY,
-                user_id VARCHAR NOT NULL,
-                device_id VARCHAR NOT NULL,
-                shared_account INTEGER NOT NULL,
-                pickle VARCHAR NOT NULL
-            );
-            """)
-
-            # Create device_keys table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS device_keys (
-                device_id TEXT PRIMARY KEY,
-                account_id INTEGER NOT NULL,
-                user_id TEXT NOT NULL,
-                display_name TEXT,
-                deleted BOOLEAN NOT NULL DEFAULT 0,
-                UNIQUE (account_id, user_id, device_id),
-                FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS keys (
-                key_type TEXT NOT NULL,
-                key TEXT NOT NULL,
-                device_id VARCHAR NOT NULL,
-                UNIQUE (key_type, device_id),
-                FOREIGN KEY (device_id) REFERENCES device_keys(device_id) ON DELETE CASCADE
-            );
-            """)
-
-            # Create device_trust_state table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS device_trust_state (
-                device_id VARCHAR PRIMARY KEY,
-                state INTEGER NOT NULL,
-                FOREIGN KEY(device_id) REFERENCES device_keys(device_id) ON DELETE CASCADE
-            );
-            """)
-
-            # Create olm_sessions table
-            cursor.execute("""
-            CREATE SEQUENCE IF NOT EXISTS olm_sessions_id_seq START 1;
-
-            CREATE TABLE IF NOT EXISTS olm_sessions (
-                id INTEGER PRIMARY KEY DEFAULT nextval('olm_sessions_id_seq'),
-                account_id INTEGER NOT NULL,
-                sender_key TEXT NOT NULL,
-                session BLOB NOT NULL,
-                session_id VARCHAR NOT NULL,
-                creation_time TIMESTAMP NOT NULL,
-                last_usage_date TIMESTAMP NOT NULL,
-                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
-            );
-            """)
-
-            # Create inbound_group_sessions table
-            cursor.execute("""
-            CREATE SEQUENCE IF NOT EXISTS inbound_group_sessions_id_seq START 1;
-
-            CREATE TABLE IF NOT EXISTS inbound_group_sessions (
-                id INTEGER PRIMARY KEY DEFAULT nextval('inbound_group_sessions_id_seq'),
-                account_id INTEGER NOT NULL,
-                session TEXT NOT NULL,
-                fp_key TEXT NOT NULL,
-                sender_key TEXT NOT NULL,
-                room_id TEXT NOT NULL,
-                UNIQUE (account_id, sender_key, fp_key, room_id),
-                FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS forwarded_chains (
-                id INTEGER PRIMARY KEY,
-                session_id INTEGER NOT NULL,
-                sender_key TEXT NOT NULL,
-                FOREIGN KEY (session_id) REFERENCES inbound_group_sessions(id) ON DELETE CASCADE
-            );
-            """)
-
-            # Create outbound_group_sessions table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS outbound_group_sessions (
-                id INTEGER PRIMARY KEY,
-                account_id INTEGER NOT NULL,
-                room_id VARCHAR NOT NULL,
-                session_id VARCHAR NOT NULL UNIQUE,
-                session BLOB NOT NULL,
-                FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
-            );
-            """)
-
-            # Create outgoing_key_requests table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS outgoing_key_requests (
-                id INTEGER PRIMARY KEY,
-                account_id INTEGER NOT NULL,
-                request_id TEXT NOT NULL,
-                session_id TEXT NOT NULL,
-                room_id TEXT NOT NULL,
-                algorithm TEXT NOT NULL,
-                FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
-                UNIQUE (account_id, request_id)
-            );
-
-            """)
-
-            # Create encrypted_rooms table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS encrypted_rooms (
-                room_id TEXT NOT NULL,
-                account_id INTEGER NOT NULL,
-                PRIMARY KEY (room_id, account_id),
-                FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
-            );
-            """)
-
-            # Create sync_tokens table
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sync_tokens (
-                account_id INTEGER PRIMARY KEY,
-                token TEXT NOT NULL,
-                FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
-            );
-            """)
 
     def _get_account(self):
         cursor = self.conn.cursor()
@@ -387,18 +243,18 @@ class DuckDBStore(MatrixStore):
             for d in device_keys:
                 cur.execute(
                     "SELECT * FROM keys WHERE device_id = ?",
-                    (d["id"],)
+                    (d[0],)
                 )
                 keys = cur.fetchall()
-                key_dict = {k["key_type"]: k["key"] for k in keys}
+                key_dict = {k[0]: k[1] for k in keys}
 
                 store.add(
                     OlmDevice(
-                        d["user_id"],
-                        d["device_id"],
+                        d[2],
+                        d[0],
                         key_dict,
-                        display_name=d["display_name"],
-                        deleted=d["deleted"],
+                        display_name=d[3],
+                        deleted=d[4],
                     )
                 )
 
@@ -561,18 +417,21 @@ class DuckDBStore(MatrixStore):
             )
 
             for row in cursor.fetchall():
+                cursor.execute(
+                    "SELECT sender_key FROM forwarded_chains WHERE session_id = ?",
+                    (row[1],),
+                )
+                chains = cursor.fetchall()
+
                 session = InboundGroupSession.from_pickle(
-                    row["session"],
-                    row["fp_key"],
-                    row["sender_key"],
-                    row["room_id"],
+                    row[2].encode(),
+                    row[3],
+                    row[4],
+                    row[5],
                     self.pickle_key,
                     [
-                        chain["sender_key"]
-                        for chain in cursor.execute(
-                            "SELECT sender_key FROM forwarded_chains WHERE session_id = ?",
-                            (row["id"],),
-                        )
+                        chain[0]
+                        for chain in chains
                     ],
                 )
                 store.add(session)
@@ -621,7 +480,7 @@ class DuckDBStore(MatrixStore):
             )
             rows = cur.fetchall()
 
-        return {row["room_id"] for row in rows}
+        return {row[0] for row in rows}
 
     def save_sync_token(self, token):
         """Save the given token"""
@@ -728,3 +587,28 @@ class DuckDBStore(MatrixStore):
                     key_request.algorithm,
                 )
             )
+
+    def load_account(self):
+        # type: () -> Optional[OlmAccount]
+        """Load the Olm account from the database.
+
+        Returns:
+            ``OlmAccount`` object, or ``None`` if it wasn't found for the
+                current device_id.
+
+        """
+        cursor = self.conn.cursor()
+        query = """
+            SELECT pickle, shared_account
+            FROM accounts
+            WHERE device_id = ?;
+        """
+        cursor.execute(query, (self.device_id,))
+
+        result = cursor.fetchone()
+
+        if not result:
+            return None
+
+        account_pickle, shared = result
+        return OlmAccount.from_pickle(account_pickle.encode(), self.pickle_key, shared)

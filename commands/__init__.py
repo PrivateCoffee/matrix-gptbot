@@ -5,6 +5,7 @@ from .botinfo import command_botinfo
 from .unknown import command_unknown
 from .coin import command_coin
 from .ignoreolder import command_ignoreolder
+from .systemmessage import command_systemmessage
 
 COMMANDS = {
     "help": command_help,
@@ -13,5 +14,6 @@ COMMANDS = {
     "botinfo": command_botinfo,
     "coin": command_coin,
     "ignoreolder": command_ignoreolder,
+    "systemmessage": command_systemmessage,
     None: command_unknown,
 }
