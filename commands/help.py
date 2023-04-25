@@ -2,9 +2,8 @@ from nio.events.room_events import RoomMessageText
 from nio.rooms import MatrixRoom
 
 
-async def command_help(room: MatrixRoom, event: RoomMessageText, context: dict):
-    return room.guest_accessroom_id, "m.room.message", {"msgtype": "m.notice",
-                                                        "body": """Available commands:
+async def command_help(room: MatrixRoom, event: RoomMessageText, bot):
+    body = """Available commands:
 
 !gptbot help - Show this message
 !gptbot newroom <room name> - Create a new room and invite yourself to it
@@ -12,4 +11,7 @@ async def command_help(room: MatrixRoom, event: RoomMessageText, context: dict):
 !gptbot botinfo - Show information about the bot
 !gptbot coin - Flip a coin (heads or tails)
 !gptbot ignoreolder - Ignore messages before this point as context
-"""}
+!gptbot systemmessage - Get or set the system message for this room
+"""
+
+    await bot.send_message(room, body, True)

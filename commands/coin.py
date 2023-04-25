@@ -4,10 +4,10 @@ from nio.rooms import MatrixRoom
 from random import SystemRandom
 
 
-async def command_coin(room: MatrixRoom, event: RoomMessageText, context: dict):
-    context["logger"]("Flipping a coin...")
+async def command_coin(room: MatrixRoom, event: RoomMessageText, bot):
+    bot.logger.log("Flipping a coin...")
 
     heads = SystemRandom().choice([True, False])
+    body = "Flipping a coin... It's " + ("heads!" if heads else "tails!")
 
-    return room.room_id, "m.room.message", {"msgtype": "m.notice",
-                                            "body": "Heads!" if heads else "Tails!"}
+    await bot.send_message(room, body, True)

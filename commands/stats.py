@@ -2,18 +2,17 @@ from nio.events.room_events import RoomMessageText
 from nio.rooms import MatrixRoom
 
 
-async def command_stats(room: MatrixRoom, event: RoomMessageText, context: dict):
-    context["logger"]("Showing stats...")
+async def command_stats(room: MatrixRoom, event: RoomMessageText, bot):
+    bot.logger.log("Showing stats...")
 
-    if not (database := context.get("database")):
-        context["logger"]("No database connection - cannot show stats")
-        return room.room_id, "m.room.message", {"msgtype": "m.notice",
-                                                "body": "Sorry, I'm not connected to a database, so I don't have any statistics on your usage."}
+    if not bot.database:
+        bot.logger.log("No database connection - cannot show stats")
+        bot.send_message(room, "Sorry, I'm not connected to a database, so I don't have any statistics on your usage.", True)
+        return 
 
-    with database.cursor() as cursor:
+    with bot.database.cursor() as cursor:
         cursor.execute(
             "SELECT SUM(tokens) FROM token_usage WHERE room_id = ?", (room.room_id,))
         total_tokens = cursor.fetchone()[0] or 0
 
-    return room.room_id, "m.room.message", {"msgtype": "m.notice",
-                                            "body": f"Total tokens used: {total_tokens}"}
+    bot.send_message(room, f"Total tokens used: {total_tokens}", True)
