@@ -15,7 +15,7 @@ Simply clone this repository and install the requirements.
 
 ### Requirements
 
-- Python 3.8 or later
+- Python 3.10 or later
 - Requirements from `requirements.txt` (install with `pip install -r requirements.txt` in a venv)
 
 ### Configuration

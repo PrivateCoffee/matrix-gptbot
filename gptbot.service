@@ -7,7 +7,7 @@ Type=simple
 User=gptbot
 Group=gptbot
 WorkingDirectory=/opt/gptbot
-ExecStart=/opt/gptbot/venv/bin/python3 -m gptbot
+ExecStart=/opt/gptbot/venv/bin/python3 -um gptbot
 Restart=always
 RestartSec=10
 
