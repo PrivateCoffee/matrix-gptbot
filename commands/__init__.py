@@ -6,6 +6,8 @@ from .unknown import command_unknown
 from .coin import command_coin
 from .ignoreolder import command_ignoreolder
 from .systemmessage import command_systemmessage
+from .imagine import command_imagine
+from .calculate import command_calculate
 
 COMMANDS = {
     "help": command_help,
@@ -15,5 +17,7 @@ COMMANDS = {
     "coin": command_coin,
     "ignoreolder": command_ignoreolder,
     "systemmessage": command_systemmessage,
+    "imagine": command_imagine,
+    "calculate": command_calculate,
     None: command_unknown,
 }

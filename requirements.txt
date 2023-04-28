@@ -3,3 +3,6 @@ matrix-nio[e2e]
 markdown2[all]
 tiktoken
 duckdb
+python-magic
+pillow
+wolframalpha

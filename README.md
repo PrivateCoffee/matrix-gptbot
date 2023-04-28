@@ -1,13 +1,23 @@
 # GPTbot
 
-GPTbot is a simple bot that uses the [OpenAI Chat Completion API](https://platform.openai.com/docs/guides/chat)
-to generate responses to messages in a Matrix room.
+GPTbot is a simple bot that uses different APIs to generate responses to 
+messages in a Matrix room.
 
-It will also save a log of the spent tokens to a DuckDB database
-(database.db in the working directory, by default).
+It is called GPTbot because it was originally intended to only use GPT-3 to
+generate responses. However, it supports other services/APIs, and I will 
+probably add more in the future, so the name is a bit misleading.
 
-Note that this bot does not yet support encryption - this is still work in
-progress.
+## Features
+
+- AI-generated responses to all messages in a Matrix room (chatbot)
+  - Currently supports OpenAI (tested with `gpt-3.5-turbo`)
+- AI-generated pictures via the `!gptbot imagine` command
+  - Currently supports OpenAI (DALL-E)
+- DuckDB database to store spent tokens
+
+## Planned features
+
+- End-to-end encryption support (partly implemented, but not yet working)
 
 ## Installation
 

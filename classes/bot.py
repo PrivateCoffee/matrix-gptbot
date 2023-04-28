@@ -1,9 +1,10 @@
-import openai
 import markdown2
 import duckdb
 import tiktoken
-
+import magic
 import asyncio
+
+from PIL import Image
 
 from nio import (
     AsyncClient,
@@ -24,9 +25,10 @@ from nio import (
 )
 from nio.crypto import Olm
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 from configparser import ConfigParser
 from datetime import datetime
+from io import BytesIO
 
 import uuid
 
@@ -35,6 +37,8 @@ from migrations import migrate
 from callbacks import RESPONSE_CALLBACKS, EVENT_CALLBACKS
 from commands import COMMANDS
 from .store import DuckDBStore
+from .openai import OpenAI
+from .wolframalpha import WolframAlpha
 
 
 class GPTBot:
@@ -46,11 +50,11 @@ class GPTBot:
     force_system_message: bool = False
     max_tokens: int = 3000  # Maximum number of input tokens
     max_messages: int = 30  # Maximum number of messages to consider as input
-    model: str = "gpt-3.5-turbo"  # OpenAI chat model to use
     matrix_client: Optional[AsyncClient] = None
     sync_token: Optional[str] = None
     logger: Optional[Logger] = Logger()
-    openai_api_key: Optional[str] = None
+    chat_api: Optional[OpenAI] = None
+    image_api: Optional[OpenAI] = None
 
     @classmethod
     def from_config(cls, config: ConfigParser):
@@ -79,12 +83,15 @@ class GPTBot:
             bot.force_system_message = config["GPTBot"].getboolean(
                 "ForceSystemMessage", bot.force_system_message)
 
+        bot.chat_api = bot.image_api = OpenAI(config["OpenAI"]["APIKey"], config["OpenAI"].get("Model"), bot.logger)
         bot.max_tokens = config["OpenAI"].getint("MaxTokens", bot.max_tokens)
         bot.max_messages = config["OpenAI"].getint(
             "MaxMessages", bot.max_messages)
-        bot.model = config["OpenAI"].get("Model", bot.model)
 
-        bot.openai_api_key = config["OpenAI"]["APIKey"]
+        # Set up WolframAlpha
+        if "WolframAlpha" in config:
+            bot.calculation_api = WolframAlpha(
+                config["WolframAlpha"]["APIKey"], bot.logger)
 
         # Set up the Matrix client
 
@@ -165,7 +172,7 @@ class GPTBot:
     def _truncate(self, messages: list, max_tokens: Optional[int] = None,
                   model: Optional[str] = None, system_message: Optional[str] = None):
         max_tokens = max_tokens or self.max_tokens
-        model = model or self.model
+        model = model or self.chat_api.chat_model
         system_message = self.default_system_message if system_message is None else system_message
 
         encoding = tiktoken.encoding_for_model(model)
@@ -224,10 +231,13 @@ class GPTBot:
         await COMMANDS.get(command, COMMANDS[None])(room, event, self)
 
     async def event_callback(self,room: MatrixRoom, event: Event):
-        self.logger.log("Received event: " + str(event), "debug")
-        for eventtype, callback in EVENT_CALLBACKS.items():
-            if isinstance(event, eventtype):
-                await callback(room, event, self)
+        self.logger.log("Received event: " + str(event.event_id), "debug")
+        try:
+            for eventtype, callback in EVENT_CALLBACKS.items():
+                if isinstance(event, eventtype):
+                    await callback(room, event, self)
+        except Exception as e:
+            self.logger.log(f"Error in event callback for {event.__class__}: {e}", "error")
 
     async def response_callback(self, response: Response):
         for response_type, callback in RESPONSE_CALLBACKS.items():
@@ -243,6 +253,52 @@ class GPTBot:
 
         for invite in invites.keys():
             await self.matrix_client.join(invite)
+
+    async def send_image(self, room: MatrixRoom, image: bytes, message: Optional[str] = None):
+        self.logger.log(
+            f"Sending image of size {len(image)} bytes to room {room.room_id}")
+
+        bio = BytesIO(image)
+        img = Image.open(bio)
+        mime = Image.MIME[img.format]
+
+        (width, height) = img.size
+
+        self.logger.log(
+            f"Uploading - Image size: {width}x{height} pixels, MIME type: {mime}")
+
+        bio.seek(0)
+
+        response, _ = await self.matrix_client.upload(
+            bio,
+            content_type=mime,
+            filename="image",
+            filesize=len(image)
+        )
+
+        self.logger.log("Uploaded image - sending message...")
+
+        content = {
+            "body": message or "",
+            "info": {
+                "mimetype": mime,
+                "size": len(image),
+                "w": width,
+                "h": height,
+            },
+            "msgtype": "m.image",
+            "url": response.content_uri
+        }
+
+        status = await self.matrix_client.room_send(
+            room.room_id,
+            "m.room.message",
+            content
+        )
+
+        self.logger.log(str(status), "debug")
+
+        self.logger.log("Sent image")
 
     async def send_message(self, room: MatrixRoom, message: str, notice: bool = False):
         markdowner = markdown2.Markdown(extras=["fenced-code-blocks"])
@@ -428,28 +484,17 @@ class GPTBot:
 
         await self.matrix_client.room_typing(room.room_id, False)
 
-    async def generate_chat_response(self, messages: List[Dict[str, str]]) -> str:
+    async def generate_chat_response(self, messages: List[Dict[str, str]]) -> Tuple[str, int]:
         """Generate a response to a chat message.
 
         Args:
             messages (List[Dict[str, str]]): A list of messages to use as context.
 
         Returns:
-            str: The response to the chat.
+            Tuple[str, int]: The response text and the number of tokens used.
         """
 
-        self.logger.log(f"Generating response to {len(messages)} messages...")
-
-        response = openai.ChatCompletion.create(
-            model=self.model,
-            messages=messages,
-            api_key=self.openai_api_key
-        )
-
-        result_text = response.choices[0].message['content']
-        tokens_used = response.usage["total_tokens"]
-        self.logger.log(f"Generated response with {tokens_used} tokens.")
-        return result_text, tokens_used
+        return self.chat_api.generate_chat_response(messages)
 
     def get_system_message(self, room: MatrixRoom | int) -> str:
         default = self.default_system_message

@@ -23,7 +23,7 @@ async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
         await bot.send_message(room, f"Sorry, I was unable to invite you to the new room. Please try again later, or create a room manually.", True)
         return
 
-    await context["client"].room_put_state(
+    await bot.matrix_client.room_put_state(
         new_room.room_id, "m.room.power_levels", {"users": {event.sender: 100}})
 
     await bot.matrix_client.joined_rooms()
