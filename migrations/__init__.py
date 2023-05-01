@@ -6,12 +6,14 @@ from duckdb import DuckDBPyConnection
 from .migration_1 import migration as migration_1
 from .migration_2 import migration as migration_2
 from .migration_3 import migration as migration_3
+from .migration_4 import migration as migration_4
 
 MIGRATIONS = OrderedDict()
 
 MIGRATIONS[1] = migration_1
 MIGRATIONS[2] = migration_2
 MIGRATIONS[3] = migration_3
+MIGRATIONS[4] = migration_4
 
 def get_version(db: DuckDBPyConnection) -> int:
     """Get the current database version.

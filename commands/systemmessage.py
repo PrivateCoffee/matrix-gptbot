@@ -15,7 +15,7 @@ async def command_systemmessage(room: MatrixRoom, event: RoomMessageText, bot):
                  system_message, event.server_timestamp)
             )
 
-        bot.send_message(room, f"Alright, I've stored the system message: '{system_message}'.", True)
+        await bot.send_message(room, f"Alright, I've stored the system message: '{system_message}'.", True)
         return
 
     bot.logger.log("Retrieving system message...")

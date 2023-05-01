@@ -8,6 +8,8 @@ from .ignoreolder import command_ignoreolder
 from .systemmessage import command_systemmessage
 from .imagine import command_imagine
 from .calculate import command_calculate
+from .classify import command_classify
+from .chat import command_chat
 
 COMMANDS = {
     "help": command_help,
@@ -19,5 +21,7 @@ COMMANDS = {
     "systemmessage": command_systemmessage,
     "imagine": command_imagine,
     "calculate": command_calculate,
+    "classify": command_classify,
+    "chat": command_chat,
     None: command_unknown,
 }

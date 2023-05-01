@@ -21,7 +21,8 @@ from nio import (
     EncryptionError,
     RoomMessageText,
     RoomSendResponse,
-    SyncResponse
+    SyncResponse,
+    RoomMessageNotice
 )
 from nio.crypto import Olm
 
@@ -55,6 +56,8 @@ class GPTBot:
     logger: Optional[Logger] = Logger()
     chat_api: Optional[OpenAI] = None
     image_api: Optional[OpenAI] = None
+    classification_api: Optional[OpenAI] = None
+    operator: Optional[str] = None
 
     @classmethod
     def from_config(cls, config: ConfigParser):
@@ -76,6 +79,7 @@ class GPTBot:
 
         # Override default values
         if "GPTBot" in config:
+            bot.operator = config["GPTBot"].get("Operator", bot.operator)
             bot.default_room_name = config["GPTBot"].get(
                 "DefaultRoomName", bot.default_room_name)
             bot.default_system_message = config["GPTBot"].get(
@@ -83,7 +87,8 @@ class GPTBot:
             bot.force_system_message = config["GPTBot"].getboolean(
                 "ForceSystemMessage", bot.force_system_message)
 
-        bot.chat_api = bot.image_api = OpenAI(config["OpenAI"]["APIKey"], config["OpenAI"].get("Model"), bot.logger)
+        bot.chat_api = bot.image_api = bot.classification_api = OpenAI(
+            config["OpenAI"]["APIKey"], config["OpenAI"].get("Model"), bot.logger)
         bot.max_tokens = config["OpenAI"].getint("MaxTokens", bot.max_tokens)
         bot.max_messages = config["OpenAI"].getint(
             "MaxMessages", bot.max_messages)
@@ -158,10 +163,10 @@ class GPTBot:
                     self.logger.log(
                         f"Could not decrypt message {event.event_id} in room {room_id}", "error")
                     continue
-            if isinstance(event, RoomMessageText):
+            if isinstance(event, (RoomMessageText, RoomMessageNotice)):
                 if event.body.startswith("!gptbot ignoreolder"):
                     break
-                if not event.body.startswith("!"):
+                if (not event.body.startswith("!")) or (event.body.startswith("!gptbot")):
                     messages.append(event)
 
         self.logger.log(f"Found {len(messages)} messages (limit: {n})")
@@ -230,14 +235,15 @@ class GPTBot:
 
         await COMMANDS.get(command, COMMANDS[None])(room, event, self)
 
-    async def event_callback(self,room: MatrixRoom, event: Event):
+    async def event_callback(self, room: MatrixRoom, event: Event):
         self.logger.log("Received event: " + str(event.event_id), "debug")
         try:
             for eventtype, callback in EVENT_CALLBACKS.items():
                 if isinstance(event, eventtype):
                     await callback(room, event, self)
         except Exception as e:
-            self.logger.log(f"Error in event callback for {event.__class__}: {e}", "error")
+            self.logger.log(
+                f"Error in event callback for {event.__class__}: {e}", "error")
 
     async def response_callback(self, response: Response):
         for response_type, callback in RESPONSE_CALLBACKS.items():
@@ -347,6 +353,30 @@ class GPTBot:
 
         return await self.matrix_client._send(RoomSendResponse, method, path, data, (room.room_id,))
 
+    def log_api_usage(self, message: Event | str, room: MatrixRoom | int, api: str, tokens: int):
+        """Log API usage to the database.
+
+        Args:
+            message (Event): The event that triggered the API usage.
+            room (MatrixRoom | int): The room the event was sent in.
+            api (str): The API that was used.
+            tokens (int): The number of tokens used.
+        """
+
+        if not self.database:
+            return
+
+        if isinstance(message, Event):
+            message = message.event_id
+
+        if isinstance(room, MatrixRoom):
+            room = room.room_id
+
+        self.database.execute(
+            "INSERT INTO token_usage (message_id, room_id, tokens, api, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (message, room, tokens, api, datetime.now())
+        )
+
     async def run(self):
         """Start the bot."""
 
@@ -410,7 +440,8 @@ class GPTBot:
         # Set up callbacks
 
         self.matrix_client.add_event_callback(self.event_callback, Event)
-        self.matrix_client.add_response_callback(self.response_callback, Response)
+        self.matrix_client.add_response_callback(
+            self.response_callback, Response)
 
         # Accept pending invites
 
@@ -454,7 +485,8 @@ class GPTBot:
             chat_messages, self.max_tokens - 1, system_message=system_message)
 
         try:
-            response, tokens_used = await self.generate_chat_response(truncated_messages)
+            response, tokens_used = self.chat_api.generate_chat_response(
+                chat_messages, user=room.room_id)
         except Exception as e:
             self.logger.log(f"Error generating response: {e}", "error")
             await self.send_message(
@@ -462,39 +494,21 @@ class GPTBot:
             return
 
         if response:
+            self.log_api_usage(event, room, f"{self.chat_api.api_code}-{self.chat_api.chat_api}", tokens_used)
+
             self.logger.log(f"Sending response to room {room.room_id}...")
 
             # Convert markdown to HTML
 
             message = await self.send_message(room, response)
 
-            if self.database:
-                self.logger.log("Storing record of tokens used...")
-
-                with self.database.cursor() as cursor:
-                    cursor.execute(
-                        "INSERT INTO token_usage (message_id, room_id, tokens, timestamp) VALUES (?, ?, ?, ?)",
-                        (message.event_id, room.room_id, tokens_used, datetime.now()))
-                    self.database.commit()
         else:
             # Send a notice to the room if there was an error
             self.logger.log("Didn't get a response from GPT API", "error")
-            send_message(
+            await send_message(
                 room, "Something went wrong. Please try again.", True)
 
         await self.matrix_client.room_typing(room.room_id, False)
-
-    async def generate_chat_response(self, messages: List[Dict[str, str]]) -> Tuple[str, int]:
-        """Generate a response to a chat message.
-
-        Args:
-            messages (List[Dict[str, str]]): A list of messages to use as context.
-
-        Returns:
-            Tuple[str, int]: The response text and the number of tokens used.
-        """
-
-        return self.chat_api.generate_chat_response(messages)
 
     def get_system_message(self, room: MatrixRoom | int) -> str:
         default = self.default_system_message

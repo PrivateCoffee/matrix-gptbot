@@ -8,9 +8,13 @@ async def command_imagine(room: MatrixRoom, event: RoomMessageText, bot):
     if prompt:
         bot.logger.log("Generating image...")
 
-        for image in bot.image_api.generate_image(prompt):
+        images, tokens_used = bot.image_api.generate_image(prompt, user=room.room_id)
+
+        for image in images:
             bot.logger.log(f"Sending image...")
             await bot.send_image(room, image)
+
+        bot.log_api_usage(event, room, f"{self.image_api.api_code}-{self.image_api.image_api}", tokens_used)
 
         return
 

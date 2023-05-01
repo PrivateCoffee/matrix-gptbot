@@ -20,14 +20,16 @@ async def command_calculate(room: MatrixRoom, event: RoomMessageText, bot):
     prompt = " ".join(prompt)
 
     if prompt:
-        bot.logger.log("Querying WolframAlpha")
+        bot.logger.log("Querying calculation API...")
 
-        for subpod in bot.calculation_api.generate_calculation_response(prompt, text, results_only):
+        for subpod in bot.calculation_api.generate_calculation_response(prompt, text, results_only, user=room.room_id):
             bot.logger.log(f"Sending subpod...")
             if isinstance(subpod, bytes):
                 await bot.send_image(room, subpod)
             else:
                 await bot.send_message(room, subpod, True)
+
+        bot.log_api_usage(event, room, f"{self.calculation_api.api_code}-{self.calculation_api.calculation_api}", tokens_used)
 
         return
 
