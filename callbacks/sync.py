@@ -4,3 +4,5 @@ async def sync_callback(response, bot):
     SYNC_TOKEN = response.next_batch
 
     bot.sync_token = SYNC_TOKEN
+
+    bot.accept_pending_invites()

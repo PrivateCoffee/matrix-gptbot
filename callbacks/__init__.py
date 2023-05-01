@@ -7,7 +7,7 @@ from nio import (
     JoinResponse,
     InviteEvent,
     OlmEvent,
-    MegolmEvent
+    MegolmEvent,
 )
 
 from .test import test_callback
