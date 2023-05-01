@@ -10,7 +10,7 @@ probably add more in the future, so the name is a bit misleading.
 ## Features
 
 - AI-generated responses to all messages in a Matrix room (chatbot)
-  - Currently supports OpenAI (tested with `gpt-3.5-turbo`)
+  - Currently supports OpenAI (tested with `gpt-3.5-turbo` and `gpt-4`)
 - AI-generated pictures via the `!gptbot imagine` command
   - Currently supports OpenAI (DALL-E)
 - Mathematical calculations via the `!gptbot calculate` command
