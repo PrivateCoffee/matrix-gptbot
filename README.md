@@ -118,10 +118,9 @@ If you need help figuring out what went wrong, feel free to open an issue.
 
 The bot will respond to _all_ messages in the room, with two exceptions:
 
-- Messages starting with `!` are considered commands and will not be considered
-  for response generation - regardless of whether the command is valid for the
-  bot or not (e.g. `!help` will not be considered for response generation).
-- Messages sent by the bot itself will not be considered for response generation.
+- If you turn off response generation for the room, the bot will only respond
+  to messages that begin with `!gptbot <command>`.
+- Messages sent by the bot itself will not trigger a response.
 
 There is a good chance that you are seeing the bot responding to its own
 messages. First, stop the bot, or it will keep responding to its own messages,
