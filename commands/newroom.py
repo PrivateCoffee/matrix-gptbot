@@ -5,7 +5,7 @@ from nio.rooms import MatrixRoom
 
 async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
     room_name = " ".join(event.body.split()[
-                         2:]) or context["default_room_name"]
+                         2:]) or bot.default_room_name
 
     bot.logger.log("Creating new room...")
     new_room = await bot.matrix_client.room_create(name=room_name)
