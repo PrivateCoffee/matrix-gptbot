@@ -22,7 +22,9 @@ from nio import (
     RoomMessageText,
     RoomSendResponse,
     SyncResponse,
-    RoomMessageNotice
+    RoomMessageNotice,
+    JoinError,
+    RoomLeaveError,
 )
 from nio.crypto import Olm
 
@@ -58,6 +60,7 @@ class GPTBot:
     image_api: Optional[OpenAI] = None
     classification_api: Optional[OpenAI] = None
     operator: Optional[str] = None
+    room_ignore_list: List[str] = [] # List of rooms to ignore invites from
 
     @classmethod
     def from_config(cls, config: ConfigParser):
@@ -276,8 +279,25 @@ class GPTBot:
         invites = self.matrix_client.invited_rooms
 
         for invite in invites.keys():
+            if invite in self.room_ignore_list:
+                self.logger.log(
+                    f"Ignoring invite to room {invite} (room is in ignore list)")
+                continue
+
             self.logger.log(f"Accepting invite to room {invite}")
-            await self.matrix_client.join(invite)
+
+            response = await self.matrix_client.join(invite)
+
+            if isinstance(response, JoinError):
+                self.logger.log(
+                    f"Error joining room {invite}: {response.message}. Not trying again.", "error")
+
+                leave_response = await self.matrix_client.room_leave(invite)
+
+                if isinstance(leave_response, RoomLeaveError):
+                    self.logger.log(
+                        f"Error leaving room {invite}: {leave_response.message}", "error")
+                    self.room_ignore_list.append(invite)
 
     async def send_image(self, room: MatrixRoom, image: bytes, message: Optional[str] = None):
         """Send an image to a room.
@@ -487,13 +507,13 @@ class GPTBot:
             await self.matrix_client.sync(timeout=30000)
 
     def respond_to_room_messages(self, room: MatrixRoom | str) -> bool:
-        """Check whether the bot should respond to messages sent in a room.
+        """Check whether the bot should respond to all messages sent in a room.
 
         Args:
             room (MatrixRoom | str): The room to check.
 
         Returns:
-            bool: Whether the bot should respond to messages sent in the room.
+            bool: Whether the bot should respond to all messages sent in the room.
         """
 
         if isinstance(room, MatrixRoom):
@@ -501,7 +521,7 @@ class GPTBot:
 
         with self.database.cursor() as cursor:
             cursor.execute(
-                "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "respond_to_messages"))
+                "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "always_reply"))
             result = cursor.fetchone()
 
         return True if not result else bool(int(result[0]))

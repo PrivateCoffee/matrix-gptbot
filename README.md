@@ -9,20 +9,20 @@ probably add more in the future, so the name is a bit misleading.
 
 ## Features
 
-- AI-generated responses to all messages in a Matrix room (chatbot)
+- AI-generated responses to messages in a Matrix room (chatbot)
   - Currently supports OpenAI (tested with `gpt-3.5-turbo` and `gpt-4`)
 - AI-generated pictures via the `!gptbot imagine` command
   - Currently supports OpenAI (DALL-E)
 - Mathematical calculations via the `!gptbot calculate` command
   - Currently supports WolframAlpha
+- Automatic classification of messages (for `imagine`, `calculate`, etc.)
+  - Beta feature, see Usage section for details
 - Really useful commands like `!gptbot help` and `!gptbot coin`
 - DuckDB database to store room context
 
 ## Planned features
 
 - End-to-end encryption support (partly implemented, but not yet working)
-- Automatic classification of messages (for `imagine`, `calculate`, etc.)
-  - Beta feature, enable for a room using `!gptbot roomsettings classification true`
 
 ## Installation
 
@@ -57,12 +57,48 @@ to messages. If you want to create a new room, you can use the `!gptbot newroom`
 command at any time, which will cause the bot to create a new room and invite
 you to it. You may also specify a room name, e.g. `!gptbot newroom My new room`.
 
-Note that the bot will currently respond to _all_ messages in the room. So you
-shouldn't invite it to a room with other people in it.
+### Reply generation
 
-It also supports the `!gptbot help` command, which will print a list of available
-commands. Messages starting with `!` are considered commands and will not be
-considered for response generation.
+Note that the bot will respond to _all_ messages in the room by default. If you
+don't want this, for example because you want to use the bot in a room with
+other people, you can use the `!gptbot roomsettings` command to change the
+settings for the current room. For example, you can disable response generation
+with `!gptbot roomsettings always_reply false`.
+
+With this setting, the bot will only be triggered if a message begins with
+`!gptbot chat`. For example, `!gptbot chat Hello, how are you?` will cause the
+bot to generate a response to the message `Hello, how are you?`. The bot will
+still get previous messages in the room as context for generating the response.
+
+### Commands
+
+There are a few commands that you can use to interact with the bot. For example,
+if you want to generate an image from a text prompt, you can use the
+`!gptbot imagine` command. For example, `!gptbot imagine a cat` will cause the
+bot to generate an image of a cat.
+
+To learn more about the available commands, `!gptbot help` will print a list of
+available commands.
+
+### Automatic classification
+
+As a beta feature, the bot can automatically classify messages and use the
+appropriate API to generate a response. For example, if you send a message
+like "Draw me a picture of a cat", the bot will automatically use the
+`imagine` command to generate an image of a cat.
+
+This feature is disabled by default. To enable it, use the `!gptbot roomsettings`
+command to change the settings for the current room. `!gptbot roomsettings classification true`
+will enable automatic classification, and `!gptbot roomsettings classification false`
+will disable it again.
+
+Note that this feature is still in beta and may not work as expected. You can
+always use the commands manually if the automatic classification doesn't work
+for you (including `!gptbot chat` for a regular chat message).
+
+Also note that this feature conflicts with the `always_reply false` setting -
+or rather, it doesn't make sense then because you already have to explicitly
+specify the command to use.
 
 ## Troubleshooting
 
