@@ -17,6 +17,7 @@ async def command_help(room: MatrixRoom, event: RoomMessageText, bot):
 - !gptbot privacy - Show privacy information
 - !gptbot chat \<message\> - Send a message to the chat API
 - !gptbot classify \<message\> - Classify a message using the classification API
+- !gptbot custom \<message\> - Used for custom commands handled by the chat model and defined through the room's system message
 """
 
     await bot.send_message(room, body, True)

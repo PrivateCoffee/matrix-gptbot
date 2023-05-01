@@ -10,9 +10,11 @@ async def command_systemmessage(room: MatrixRoom, event: RoomMessageText, bot):
 
         with bot.database.cursor() as cur:
             cur.execute(
-                "INSERT INTO system_messages (room_id, message_id, user_id, body, timestamp) VALUES (?, ?, ?, ?, ?)",
-                (room.room_id, event.event_id, event.sender,
-                 system_message, event.server_timestamp)
+                """
+                INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)
+                ON CONFLICT (room_id, setting) DO UPDATE SET value = ?;
+                """,
+                (room.room_id, "system_message", system_message, system_message)
             )
 
         await bot.send_message(room, f"Alright, I've stored the system message: '{system_message}'.", True)
@@ -22,4 +24,4 @@ async def command_systemmessage(room: MatrixRoom, event: RoomMessageText, bot):
 
     system_message = bot.get_system_message(room)
 
-    bot.send_message(room, f"The current system message is: '{system_message}'.", True)
+    await bot.send_message(room, f"The current system message is: '{system_message}'.", True)
