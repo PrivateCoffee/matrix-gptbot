@@ -13,6 +13,8 @@ probably add more in the future, so the name is a bit misleading.
   - Currently supports OpenAI (tested with `gpt-3.5-turbo`)
 - AI-generated pictures via the `!gptbot imagine` command
   - Currently supports OpenAI (DALL-E)
+- Mathematical calculations via the `!gptbot calculate` command
+  - Currently supports WolframAlpha
 - DuckDB database to store spent tokens
 
 ## Planned features

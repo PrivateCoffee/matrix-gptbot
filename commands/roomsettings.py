@@ -50,7 +50,7 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
 
         bot.logger.log("Retrieving classification status...")
 
-        use_classification = await bot.room_uses_classification(room)
+        use_classification = bot.room_uses_classification(room)
 
         await bot.send_message(room, f"The current classification status is: '{use_classification}'.", True)
         return
