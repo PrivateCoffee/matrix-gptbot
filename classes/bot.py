@@ -235,11 +235,11 @@ class GPTBot:
 
         await COMMANDS.get(command, COMMANDS[None])(room, event, self)
 
-    def room_uses_classification(self, room: MatrixRoom | int) -> bool:
+    def room_uses_classification(self, room: MatrixRoom | str) -> bool:
         """Check if a room uses classification.
 
         Args:
-            room (MatrixRoom): The room to check.
+            room (MatrixRoom | str): The room to check.
 
         Returns:
             bool: Whether the room uses classification.
@@ -276,9 +276,18 @@ class GPTBot:
         invites = self.matrix_client.invited_rooms
 
         for invite in invites.keys():
+            self.logger.log(f"Accepting invite to room {invite}")
             await self.matrix_client.join(invite)
 
     async def send_image(self, room: MatrixRoom, image: bytes, message: Optional[str] = None):
+        """Send an image to a room.
+
+        Args:
+            room (MatrixRoom): The room to send the image to.
+            image (bytes): The image to send.
+            message (str, optional): The message to send with the image. Defaults to None.
+        """
+
         self.logger.log(
             f"Sending image of size {len(image)} bytes to room {room.room_id}")
 
@@ -325,6 +334,14 @@ class GPTBot:
         self.logger.log("Sent image")
 
     async def send_message(self, room: MatrixRoom, message: str, notice: bool = False):
+        """Send a message to a room.
+
+        Args:
+            room (MatrixRoom): The room to send the message to.
+            message (str): The message to send.
+            notice (bool): Whether to send the message as a notice. Defaults to False.
+        """
+
         markdowner = markdown2.Markdown(extras=["fenced-code-blocks"])
         formatted_body = markdowner.convert(message)
 
@@ -371,12 +388,12 @@ class GPTBot:
 
         return await self.matrix_client._send(RoomSendResponse, method, path, data, (room.room_id,))
 
-    def log_api_usage(self, message: Event | str, room: MatrixRoom | int, api: str, tokens: int):
+    def log_api_usage(self, message: Event | str, room: MatrixRoom | str, api: str, tokens: int):
         """Log API usage to the database.
 
         Args:
             message (Event): The event that triggered the API usage.
-            room (MatrixRoom | int): The room the event was sent in.
+            room (MatrixRoom | str): The room the event was sent in.
             api (str): The API that was used.
             tokens (int): The number of tokens used.
         """
@@ -447,7 +464,7 @@ class GPTBot:
 
             self.matrix_client.encrypted_rooms = self.matrix_client.store.load_encrypted_rooms()
 
-        # Run initial sync
+        # Run initial sync (now includes joining rooms)
         sync = await self.matrix_client.sync(timeout=30000)
         if isinstance(sync, SyncResponse):
             await self.response_callback(sync)
@@ -461,11 +478,6 @@ class GPTBot:
         self.matrix_client.add_response_callback(
             self.response_callback, Response)
 
-        # Accept pending invites
-
-        self.logger.log("Accepting pending invites...")
-        await self.accept_pending_invites()
-
         # Start syncing events
         self.logger.log("Starting sync loop...")
         try:
@@ -474,15 +486,48 @@ class GPTBot:
             self.logger.log("Syncing one last time...")
             await self.matrix_client.sync(timeout=30000)
 
-    async def process_query(self, room: MatrixRoom, event: RoomMessageText, allow_classify: bool = True):
+    def respond_to_room_messages(self, room: MatrixRoom | str) -> bool:
+        """Check whether the bot should respond to messages sent in a room.
+
+        Args:
+            room (MatrixRoom | str): The room to check.
+
+        Returns:
+            bool: Whether the bot should respond to messages sent in the room.
+        """
+
+        if isinstance(room, MatrixRoom):
+            room = room.room_id
+
+        with self.database.cursor() as cursor:
+            cursor.execute(
+                "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "respond_to_messages"))
+            result = cursor.fetchone()
+
+        return True if not result else bool(int(result[0]))
+
+    async def process_query(self, room: MatrixRoom, event: RoomMessageText, from_chat_command: bool = False):
+        """Process a query message. Generates a response and sends it to the room.
+
+        Args:
+            room (MatrixRoom): The room the message was sent in.
+            event (RoomMessageText): The event that triggered the query.
+            from_chat_command (bool, optional): Whether the query was sent via the `!gptbot chat` command. Defaults to False.
+        """
+
+        if not (from_chat_command or self.respond_to_room_messages(room) or self.matrix_client.user_id in event.body):
+            return
+
         await self.matrix_client.room_typing(room.room_id, True)
 
         await self.matrix_client.room_read_markers(room.room_id, event.event_id)
 
-        if allow_classify and self.room_uses_classification(room):
-            classification, tokens = self.classification_api.classify_message(event.body, room.room_id)
+        if (not from_chat_command) and self.room_uses_classification(room):
+            classification, tokens = self.classification_api.classify_message(
+                event.body, room.room_id)
 
-            self.log_api_usage(event, room, f"{self.classification_api.api_code}-{self.classification_api.classification_api}", tokens)
+            self.log_api_usage(
+                event, room, f"{self.classification_api.api_code}-{self.classification_api.classification_api}", tokens)
 
             if not classification["type"] == "chat":
                 event.body = f"!gptbot {classification['type']} {classification['prompt']}"
@@ -522,7 +567,8 @@ class GPTBot:
             return
 
         if response:
-            self.log_api_usage(event, room, f"{self.chat_api.api_code}-{self.chat_api.chat_api}", tokens_used)
+            self.log_api_usage(
+                event, room, f"{self.chat_api.api_code}-{self.chat_api.chat_api}", tokens_used)
 
             self.logger.log(f"Sending response to room {room.room_id}...")
 
@@ -538,10 +584,19 @@ class GPTBot:
 
         await self.matrix_client.room_typing(room.room_id, False)
 
-    def get_system_message(self, room: MatrixRoom | int) -> str:
+    def get_system_message(self, room: MatrixRoom | str) -> str:
+        """Get the system message for a room.
+
+        Args:
+            room (MatrixRoom | str): The room to get the system message for.
+
+        Returns:
+            str: The system message.
+        """
+
         default = self.default_system_message
 
-        if isinstance(room, int):
+        if isinstance(room, str):
             room_id = room
         else:
             room_id = room.room_id

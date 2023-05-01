@@ -5,4 +5,4 @@ async def sync_callback(response, bot):
 
     bot.sync_token = SYNC_TOKEN
 
-    bot.accept_pending_invites()
+    await bot.accept_pending_invites()

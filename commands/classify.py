@@ -17,7 +17,7 @@ async def command_classify(room: MatrixRoom, event: RoomMessageText, bot):
 
         await bot.send_message(room, message, True)
 
-        bot.log_api_usage(event, room, f"{self.classification_api.api_code}-{self.classification_api.classification_api}", tokens_used)
+        bot.log_api_usage(event, room, f"{bot.classification_api.api_code}-{bot.classification_api.classification_api}", tokens_used)
 
         return
 

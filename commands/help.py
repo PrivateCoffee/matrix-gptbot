@@ -12,6 +12,7 @@ async def command_help(room: MatrixRoom, event: RoomMessageText, bot):
 - !gptbot stats - Show usage statistics for this room
 - !gptbot systemmessage \<message\> - Get or set the system message for this room
 - !gptbot coin - Flip a coin (heads or tails)
+- !gptbot dice [number] - Roll a dice with the specified number of sides (default: 6)
 - !gptbot imagine \<prompt\> - Generate an image from a prompt
 - !gptbot calculate [--text] [--details] \<query\> - Calculate a result to a calculation, optionally forcing text output instead of an image, and optionally showing additional details like the input interpretation
 - !gptbot chat \<message\> - Send a message to the chat API

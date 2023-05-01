@@ -53,13 +53,16 @@ class OpenAI:
         return result_text, tokens_used
 
     def classify_message(self, query: str, user: Optional[str] = None) -> Tuple[Dict[str, str], int]:
-        system_message = """You are a classifier for different types of messages. You decide whether an incoming message is meant to be a prompt for an AI chat model, an image generation AI, or a calculation for WolframAlpha. You respond with a JSON object like this:
+        system_message = """You are a classifier for different types of messages. You decide whether an incoming message is meant to be a prompt for an AI chat model, or meant for a different API. You respond with a JSON object like this:
 
 { "type": event_type, "prompt": prompt }
 
 - If the message you received is meant for the AI chat model, the event_type is "chat", and the prompt is the literal content of the message you received. This is also the default if none of the other options apply.
 - If it is a prompt for a calculation that can be answered better by WolframAlpha than an AI chat bot, the event_type is "calculate". Optimize the message you received for input to WolframAlpha, and return it as the prompt attribute.
 - If it is a prompt for an AI image generation, the event_type is "imagine". Optimize the message you received for use with DALL-E, and return it as the prompt attribute.
+- If the user is asking you to create a new room, the event_type is "newroom", and the prompt is the name of the room, if one is given, else an empty string.
+- If the user is asking you to throw a coin, the event_type is "coin". The prompt is an empty string.
+- If the user is asking you to roll a dice, the event_type is "dice". The prompt is an string containing an optional number of sides, if one is given, else an empty string.
 - If for any reason you are unable to classify the message (for example, if it infringes on your terms of service), the event_type is "error", and the prompt is a message explaining why you are unable to process the message.
 
 Only the event_types mentioned above are allowed, you must not respond in any other way."""

@@ -8,6 +8,7 @@ from nio import (
     InviteEvent,
     OlmEvent,
     MegolmEvent,
+    RoomMemberEvent,
 )
 
 from .test import test_callback
@@ -15,6 +16,7 @@ from .sync import sync_callback
 from .invite import room_invite_callback
 from .join import join_callback
 from .message import message_callback
+from .roommember import roommember_callback
 
 RESPONSE_CALLBACKS = {
     SyncResponse: sync_callback,
@@ -26,4 +28,5 @@ EVENT_CALLBACKS = {
     InviteEvent: room_invite_callback,
     RoomMessageText: message_callback,
     MegolmEvent: message_callback,
+    RoomMemberEvent: roommember_callback,
 }

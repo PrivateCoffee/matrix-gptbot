@@ -19,6 +19,7 @@ for command in [
     "custom",
     "privacy",
     "roomsettings",
+    "dice",
 ]:
     function = getattr(import_module(
         "commands." + command), "command_" + command)

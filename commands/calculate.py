@@ -29,7 +29,7 @@ async def command_calculate(room: MatrixRoom, event: RoomMessageText, bot):
             else:
                 await bot.send_message(room, subpod, True)
 
-        bot.log_api_usage(event, room, f"{self.calculation_api.api_code}-{self.calculation_api.calculation_api}", tokens_used)
+        bot.log_api_usage(event, room, f"{bot.calculation_api.api_code}-{bot.calculation_api.calculation_api}", tokens_used)
 
         return
 

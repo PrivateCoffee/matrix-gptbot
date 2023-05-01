@@ -15,11 +15,14 @@ probably add more in the future, so the name is a bit misleading.
   - Currently supports OpenAI (DALL-E)
 - Mathematical calculations via the `!gptbot calculate` command
   - Currently supports WolframAlpha
-- DuckDB database to store spent tokens
+- Really useful commands like `!gptbot help` and `!gptbot coin`
+- DuckDB database to store room context
 
 ## Planned features
 
 - End-to-end encryption support (partly implemented, but not yet working)
+- Automatic classification of messages (for `imagine`, `calculate`, etc.)
+  - Beta feature, enable for a room using `!gptbot roomsettings classification true`
 
 ## Installation
 
@@ -98,4 +101,4 @@ please check the logs and open an issue if you can't figure out what's going on.
 
 ## License
 
-This project is licensed under the terms of the MIT license.
+This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE) file for details.
