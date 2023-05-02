@@ -6,5 +6,5 @@ async def roommember_callback(room: MatrixRoom, event: RoomMemberEvent, bot):
 
         if len(room.users) == 1:
             bot.logger.log("Yes, I was abandoned - leaving...")
-            await bot.matrix_client.leave(room.room_id)
+            await bot.matrix_client.room_leave(room.room_id)
             return

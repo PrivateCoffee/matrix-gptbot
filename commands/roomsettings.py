@@ -7,8 +7,8 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
     value = " ".join(event.body.split()[3:]) if len(
         event.body.split()) > 3 else None
 
-    if setting == "classification":
-        setting = "use_classification"
+    if setting in ("classification", "timing"):
+        setting = f"use_{setting}"
     if setting == "systemmessage":
         setting = "system_message"
 
@@ -33,7 +33,7 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
         await bot.send_message(room, f"The current system message is: '{system_message}'.", True)
         return
 
-    if setting in ("use_classification", "always_reply"):
+    if setting in ("use_classification", "always_reply", "use_timing"):
         if value:
             if value.lower() in ["true", "false"]:
                 value = value.lower() == "true"
@@ -64,7 +64,7 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
             value = cur.fetchone()[0]
 
             if not value:
-                if setting == "use_classification":
+                if setting in ("use_classification", "use_timing"):
                     value = False
                 elif setting == "always_reply":
                     value = True

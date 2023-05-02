@@ -1,7 +1,13 @@
 from nio import MatrixRoom, RoomMessageText, MegolmEvent
 
-async def message_callback(room: MatrixRoom, event: RoomMessageText | MegolmEvent, bot):
+from datetime import datetime
+
+async def message_callback(room: MatrixRoom | str, event: RoomMessageText | MegolmEvent, bot):
     bot.logger.log(f"Received message from {event.sender} in room {room.room_id}")
+
+    sent = datetime.fromtimestamp(event.server_timestamp / 1000)
+    received = datetime.now()
+    latency = received - sent
 
     if isinstance(event, MegolmEvent):
         try:
@@ -28,3 +34,11 @@ async def message_callback(room: MatrixRoom, event: RoomMessageText | MegolmEven
 
     else:
         await bot.process_query(room, event)
+
+    processed = datetime.now()
+    processing_time = processed - received
+
+    bot.logger.log(f"Message processing took {processing_time.total_seconds()} seconds (latency: {latency.total_seconds()} seconds)")
+
+    if bot.room_uses_timing(room):
+        await bot.send_message(room, f"Message processing took {processing_time.total_seconds()} seconds (latency: {latency.total_seconds()} seconds)", True)

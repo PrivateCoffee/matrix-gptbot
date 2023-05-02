@@ -7,6 +7,8 @@ from random import SystemRandom
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
+from .dict import AttrDict
+
 import json
 
 
@@ -458,8 +460,14 @@ class DuckDBStore(MatrixStore):
             rows = cur.fetchall()
 
         return {
-            request.request_id: OutgoingKeyRequest.from_database(request)
-            for request in rows
+            row[1]: OutgoingKeyRequest.from_response(AttrDict({
+                "id": row[0],
+                "account_id": row[1],
+                "request_id": row[2],
+                "session_id": row[3],
+                "room_id": row[4],
+                "algorithm": row[5],
+            })) for row in rows
         }
 
     def load_encrypted_rooms(self):
@@ -571,15 +579,30 @@ class DuckDBStore(MatrixStore):
                     insert_query, (account, session.sender_key, session.ed25519, session.room_id, chain))
 
     def add_outgoing_key_request(self, key_request):
+        """Add a new outgoing key request to the database.
+
+        Args:
+            key_request (OutgoingKeyRequest): The key request to add.
+        """
+
         account_id = self.account_id
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO outgoing_key_requests (account_id, request_id, session_id, room_id, algorithm)
-                VALUES (?, ?, ?, ?, ?)
+                SELECT MAX(id) FROM outgoing_key_requests
+                """
+            )
+            row = cursor.fetchone()
+            request_id = row[0] + 1 if row[0] else 1
+
+            cursor.execute(
+                """
+                INSERT INTO outgoing_key_requests (id, account_id, request_id, session_id, room_id, algorithm)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT (account_id, request_id) DO NOTHING
                 """,
                 (
+                    request_id,
                     account_id,
                     key_request.request_id,
                     key_request.session_id,

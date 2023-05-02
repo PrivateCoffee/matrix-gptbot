@@ -256,7 +256,7 @@ class GPTBot:
 
         return False if not result else bool(int(result[0]))
 
-    async def event_callback(self, room: MatrixRoom, event: Event):
+    async def _event_callback(self, room: MatrixRoom, event: Event):
         self.logger.log("Received event: " + str(event.event_id), "debug")
         try:
             for eventtype, callback in EVENT_CALLBACKS.items():
@@ -266,10 +266,34 @@ class GPTBot:
             self.logger.log(
                 f"Error in event callback for {event.__class__}: {e}", "error")
 
-    async def response_callback(self, response: Response):
+    async def event_callback(self, room: MatrixRoom, event: Event):
+        task = asyncio.create_task(self._event_callback(room, event))
+
+    def room_uses_timing(self, room: MatrixRoom):
+        """Check if a room uses timing.
+
+        Args:
+            room (MatrixRoom): The room to check.
+
+        Returns:
+            bool: Whether the room uses timing.
+        """
+        room_id = room.room_id
+
+        with self.database.cursor() as cursor:
+            cursor.execute(
+                "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room_id, "use_timing"))
+            result = cursor.fetchone()
+
+        return False if not result else bool(int(result[0]))
+
+    async def _response_callback(self, response: Response):
         for response_type, callback in RESPONSE_CALLBACKS.items():
             if isinstance(response, response_type):
                 await callback(response, self)
+
+    async def response_callback(self, response: Response):
+        task = asyncio.create_task(self._response_callback(response))
 
     async def accept_pending_invites(self):
         """Accept all pending invites."""
@@ -353,7 +377,7 @@ class GPTBot:
 
         self.logger.log("Sent image")
 
-    async def send_message(self, room: MatrixRoom, message: str, notice: bool = False):
+    async def send_message(self, room: MatrixRoom | str, message: str, notice: bool = False):
         """Send a message to a room.
 
         Args:
@@ -361,6 +385,9 @@ class GPTBot:
             message (str): The message to send.
             notice (bool): Whether to send the message as a notice. Defaults to False.
         """
+
+        if isinstance(room, str):
+            room = self.matrix_client.rooms[room]
 
         markdowner = markdown2.Markdown(extras=["fenced-code-blocks"])
         formatted_body = markdowner.convert(message)
