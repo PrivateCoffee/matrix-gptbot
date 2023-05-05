@@ -25,6 +25,7 @@ from nio import (
     RoomMessageNotice,
     JoinError,
     RoomLeaveError,
+    RoomSendError,
 )
 from nio.crypto import Olm
 
@@ -34,6 +35,7 @@ from datetime import datetime
 from io import BytesIO
 
 import uuid
+import traceback
 
 from .logging import Logger
 from migrations import migrate
@@ -42,6 +44,7 @@ from commands import COMMANDS
 from .store import DuckDBStore
 from .openai import OpenAI
 from .wolframalpha import WolframAlpha
+from .trackingmore import TrackingMore
 
 
 class GPTBot:
@@ -59,8 +62,10 @@ class GPTBot:
     chat_api: Optional[OpenAI] = None
     image_api: Optional[OpenAI] = None
     classification_api: Optional[OpenAI] = None
+    parcel_api: Optional[TrackingMore] = None
     operator: Optional[str] = None
     room_ignore_list: List[str] = [] # List of rooms to ignore invites from
+    debug: bool = False
 
     @classmethod
     def from_config(cls, config: ConfigParser):
@@ -89,6 +94,7 @@ class GPTBot:
                 "SystemMessage", bot.default_system_message)
             bot.force_system_message = config["GPTBot"].getboolean(
                 "ForceSystemMessage", bot.force_system_message)
+            bot.debug = config["GPTBot"].getboolean("Debug", bot.debug)
 
         bot.chat_api = bot.image_api = bot.classification_api = OpenAI(
             config["OpenAI"]["APIKey"], config["OpenAI"].get("Model"), bot.logger)
@@ -100,6 +106,11 @@ class GPTBot:
         if "WolframAlpha" in config:
             bot.calculation_api = WolframAlpha(
                 config["WolframAlpha"]["APIKey"], bot.logger)
+
+        # Set up TrackingMore
+        if "TrackingMore" in config:
+            bot.parcel_api = TrackingMore(
+                config["TrackingMore"]["APIKey"], bot.logger)
 
         # Set up the Matrix client
 
@@ -265,6 +276,9 @@ class GPTBot:
         except Exception as e:
             self.logger.log(
                 f"Error in event callback for {event.__class__}: {e}", "error")
+
+            if self.debug:
+                await self.send_message(room, f"Error: {e}\n\n```\n{traceback.format_exc()}\n```", True)
 
     async def event_callback(self, room: MatrixRoom, event: Event):
         task = asyncio.create_task(self._event_callback(room, event))
@@ -433,7 +447,12 @@ class GPTBot:
             self.matrix_client.access_token, room.room_id, msgtype, content, uuid.uuid4()
         )
 
-        return await self.matrix_client._send(RoomSendResponse, method, path, data, (room.room_id,))
+        response = await self.matrix_client._send(RoomSendResponse, method, path, data, (room.room_id,))
+
+        if isinstance(response, RoomSendError):
+            self.logger.log(
+                f"Error sending message: {response.message}", "error")
+            return
 
     def log_api_usage(self, message: Event | str, room: MatrixRoom | str, api: str, tokens: int):
         """Log API usage to the database.

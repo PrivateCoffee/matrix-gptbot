@@ -1,4 +1,4 @@
-from nio import MatrixRoom, RoomMessageText, MegolmEvent
+from nio import MatrixRoom, RoomMessageText, MegolmEvent, RoomKeyRequestError, RoomKeyRequestResponse
 
 from datetime import datetime
 
@@ -15,7 +15,14 @@ async def message_callback(room: MatrixRoom | str, event: RoomMessageText | Mego
         except Exception as e:
             try:
                 bot.logger.log("Requesting new encryption keys...")
-                await bot.matrix_client.request_room_key(event)
+                response = await bot.matrix_client.request_room_key(event)
+
+                if isinstance(response, RoomKeyRequestError):
+                    bot.logger.log(f"Error requesting encryption keys: {response}", "error")
+                elif isinstance(response, RoomKeyRequestResponse):
+                    bot.logger.log(f"Encryption keys received: {response}", "debug")
+                    bot.matrix_bot.olm.handle_response(response)
+                    event = await bot.matrix_client.decrypt_event(event)
             except:
                 pass
 
