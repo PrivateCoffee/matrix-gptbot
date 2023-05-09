@@ -20,6 +20,11 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
                 bot.logger.log(
                     f"Created space {space} for user {event.sender}")
 
+                if bot.logo_uri:
+                    await bot.matrix_client.room_put_state(space, "m.room.avatar", {
+                        "url": bot.logo_uri
+                    }, "")
+
                 with bot.database.cursor() as cursor:
                     cursor.execute(
                         "INSERT INTO user_spaces (space_id, user_id) VALUES (?, ?)", (space, event.sender))
@@ -86,6 +91,11 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
                     join_rooms.append(room.room_id)
 
             await bot.add_rooms_to_space(space, join_rooms)
+
+            if bot.logo_uri:
+                await bot.matrix_client.room_put_state(space, "m.room.avatar", {
+                    "url": bot.logo_uri
+                }, "")
 
             await bot.send_message(room, "Space updated.", True)
             return
