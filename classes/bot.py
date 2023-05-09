@@ -26,6 +26,9 @@ from nio import (
     JoinError,
     RoomLeaveError,
     RoomSendError,
+    RoomVisibility,
+    RoomCreateResponse,
+    RoomCreateError,
 )
 from nio.crypto import Olm
 
@@ -64,7 +67,7 @@ class GPTBot:
     classification_api: Optional[OpenAI] = None
     parcel_api: Optional[TrackingMore] = None
     operator: Optional[str] = None
-    room_ignore_list: List[str] = [] # List of rooms to ignore invites from
+    room_ignore_list: List[str] = []  # List of rooms to ignore invites from
     debug: bool = False
 
     @classmethod
@@ -551,6 +554,51 @@ class GPTBot:
         finally:
             self.logger.log("Syncing one last time...")
             await self.matrix_client.sync(timeout=30000)
+
+    async def create_space(self, name, visibility=RoomVisibility.private) -> str:
+        """Create a space.
+
+        Args:
+            name (str): The name of the space.
+            visibility (RoomVisibility, optional): The visibility of the space. Defaults to RoomVisibility.private.
+
+        Returns:
+            MatrixRoom: The created space.
+        """
+
+        response = await self.matrix_client.room_create(
+            name=name, visibility=visibility, space=True)
+
+        if isinstance(response, RoomCreateError):
+            self.logger.log(
+                f"Error creating space: {response.message}", "error")
+            return
+
+        return response.room_id
+
+    async def add_rooms_to_space(self, space: MatrixRoom | str, rooms: List[MatrixRoom | str]):
+        """Add rooms to a space.
+
+        Args:
+            space (MatrixRoom | str): The space to add the rooms to.
+            rooms (List[MatrixRoom | str]): The rooms to add to the space.
+        """
+
+        if isinstance(space, MatrixRoom):
+            space = space.room_id
+
+        for room in rooms:
+            if isinstance(room, MatrixRoom):
+                room = room.room_id
+
+            await self.matrix_client.room_put_state(space, "m.space.child", {
+                "via": [room.split(":")[1], space.split(":")[1]],
+            }, room)
+
+            await self.matrix_client.room_put_state(room, "m.room.parent", {
+                "via": [space.split(":")[1], room.split(":")[1]],
+                "canonical": True
+            }, space)
 
     def respond_to_room_messages(self, room: MatrixRoom | str) -> bool:
         """Check whether the bot should respond to all messages sent in a room.

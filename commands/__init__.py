@@ -21,6 +21,7 @@ for command in [
     "roomsettings",
     "dice",
     "parcel",
+    "space",
 ]:
     function = getattr(import_module(
         "commands." + command), "command_" + command)

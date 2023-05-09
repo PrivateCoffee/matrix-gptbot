@@ -11,6 +11,7 @@ async def command_help(room: MatrixRoom, event: RoomMessageText, bot):
 - !gptbot newroom \<room name\> - Create a new room and invite yourself to it
 - !gptbot stats - Show usage statistics for this room
 - !gptbot systemmessage \<message\> - Get or set the system message for this room
+- !gptbot space [enable|disable|update|invite] - Enable, disable, force update, or invite yourself to your space
 - !gptbot coin - Flip a coin (heads or tails)
 - !gptbot dice [number] - Roll a dice with the specified number of sides (default: 6)
 - !gptbot imagine \<prompt\> - Generate an image from a prompt

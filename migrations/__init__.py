@@ -4,7 +4,7 @@ from importlib import import_module
 
 from duckdb import DuckDBPyConnection
 
-MAX_MIGRATION = 6
+MAX_MIGRATION = 7
 
 MIGRATIONS = OrderedDict()
 
