@@ -694,6 +694,13 @@ class GPTBot:
             if isinstance(room, MatrixRoom):
                 room = room.room_id
 
+            if space == room:
+                self.logger.log(
+                    f"Refusing to add {room} to itself", "warning")
+                continue
+
+            self.logger.log(f"Adding {room} to {space}...")
+
             await self.matrix_client.room_put_state(space, "m.space.child", {
                 "via": [room.split(":")[1], space.split(":")[1]],
             }, room)
