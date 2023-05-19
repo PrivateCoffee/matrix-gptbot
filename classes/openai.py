@@ -1,8 +1,6 @@
 import openai
 import requests
 
-import asyncio
-import functools
 import json
 
 from .logging import Logger
