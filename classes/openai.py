@@ -39,22 +39,14 @@ class OpenAI:
         Returns:
             Tuple[str, int]: The response text and the number of tokens used.
         """
-        try:
-            loop = asyncio.get_event_loop()
-        except Exception as e:
-            self.logger.log(f"Error getting event loop: {e}", "error")
-            return
-
         self.logger.log(f"Generating response to {len(messages)} messages using {self.chat_model}...")
 
-        chat_partial = functools.partial(
-            openai.ChatCompletion.create,
-                model=self.chat_model,
-                messages=messages,
-                api_key=self.api_key,
-                user = user
+        response  = await openai.ChatCompletion.acreate(
+            model=self.chat_model,
+            messages=messages,
+            api_key=self.api_key,
+            user = user
         )
-        response = await loop.run_in_executor(None, chat_partial)
 
         result_text = response.choices[0].message['content']
         tokens_used = response.usage["total_tokens"]
@@ -75,12 +67,6 @@ class OpenAI:
 - If for any reason you are unable to classify the message (for example, if it infringes on your terms of service), the event_type is "error", and the prompt is a message explaining why you are unable to process the message.
 
 Only the event_types mentioned above are allowed, you must not respond in any other way."""
-        try:
-            loop = asyncio.get_event_loop()
-        except Exception as e:
-            self.logger.log(f"Error getting event loop: {e}", "error")
-            return
-
         messages = [
             {
                 "role": "system",
@@ -94,14 +80,12 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         self.logger.log(f"Classifying message '{query}'...")
 
-        chat_partial = functools.partial(
-            openai.ChatCompletion.create,
-                model=self.chat_model,
-                messages=messages,
-                api_key=self.api_key,
-                user=user
+        response  = await openai.ChatCompletion.acreate(
+            model=self.chat_model,
+            messages=messages,
+            api_key=self.api_key,
+            user = user
         )
-        response = await loop.run_in_executor(None, chat_partial)
 
         try:
             result = json.loads(response.choices[0].message['content'])
@@ -123,24 +107,15 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         Yields:
             bytes: The image data.
         """
-        try:
-            loop = asyncio.get_event_loop()
-        except Exception as e:
-            self.logger.log(f"Error getting event loop: {e}", "error")
-            return
-
-
         self.logger.log(f"Generating image from prompt '{prompt}'...")
 
-        image_partial = functools.partial(
-            openai.Image.create,
-                prompt=prompt,
-                n=1,
-                api_key=self.api_key,
-                size="1024x1024",
-                user = user
+        response = await openai.Image.acreate(
+            prompt=prompt,
+            n=1,
+            api_key=self.api_key,
+            size="1024x1024",
+            user = user
         )
-        response = await loop.run_in_executor(None, image_partial)
 
         images = []
 
