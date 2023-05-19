@@ -1,6 +1,3 @@
-import asyncio
-import functools
-
 from nio.events.room_events import RoomMessageText
 from nio.rooms import MatrixRoom
 
@@ -12,16 +9,7 @@ async def command_classify(room: MatrixRoom, event: RoomMessageText, bot):
         bot.logger.log("Classifying message...")
 
         try:
-            loop = asyncio.get_event_loop()
-        except Exception as e:
-            bot.logger.log(f"Error getting event loop: {e}", "error")
-            await bot.send_message(
-                room, "Something went wrong. Please try again.", True)
-            return
-
-        try:
-            classify_partial = functools.partial(bot.classification_api.classify_message, prompt, user=room.room_id)
-            response, tokens_used = await loop.run_in_executor(None, classify_partial)
+            response, tokens_used = await bot.classification_api.classify_message(prompt, user=room.room_id)
         except Exception as e:
             bot.logger.log(f"Error classifying message: {e}", "error")
             await bot.send_message(room, "Sorry, I couldn't classify the message. Please try again later.", True)
