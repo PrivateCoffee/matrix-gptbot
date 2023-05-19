@@ -36,7 +36,7 @@ def migrate(db: DuckDBPyConnection, from_version: Optional[int] = None, to_versi
     """
 
     if from_version is None:
-        from_version = get_version(db)
+        from_version = get_version(db) + 1
 
     if to_version is None:
         to_version = max(MIGRATIONS.keys())
@@ -44,8 +44,10 @@ def migrate(db: DuckDBPyConnection, from_version: Optional[int] = None, to_versi
     if from_version > to_version:
         raise ValueError("Cannot migrate from a higher version to a lower version.")
 
+    print(f"Migrating from version {from_version} to {to_version}...")
     for version in range(from_version, to_version):
         if version in MIGRATIONS:
-            MIGRATIONS[version + 1](db)
+            print(f"Running migration {version}...")
+            MIGRATIONS[version](db)
 
     return from_version, to_version
