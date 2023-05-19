@@ -2,6 +2,7 @@ import markdown2
 import duckdb
 import tiktoken
 import asyncio
+import functools
 
 from PIL import Image
 
@@ -780,8 +781,18 @@ class GPTBot:
             chat_messages, self.max_tokens - 1, system_message=system_message)
 
         try:
-            response, tokens_used = self.chat_api.generate_chat_response(
-                chat_messages, user=room.room_id)
+            loop = asyncio.get_event_loop()
+        except Exception as e:
+            self.logger.log(f"Error getting event loop: {e}", "error")
+            await self.send_message(
+                room, "Something went wrong. Please try again.", True)
+            return
+
+        try:
+            chat_partial = functools.partial(self.chat_api.generate_chat_response, truncated_messages, user=room.room_id)
+            response, tokens_used = await loop.run_in_executor(None, chat_partial)
+            # response, tokens_used = self.chat_api.generate_chat_response(
+            #     chat_messages, user=room.room_id)
         except Exception as e:
             self.logger.log(f"Error generating response: {e}", "error")
             await self.send_message(
