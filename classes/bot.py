@@ -1,8 +1,8 @@
 import markdown2
 import duckdb
 import tiktoken
-import magic
 import asyncio
+import functools
 
 from PIL import Image
 
@@ -27,12 +27,11 @@ from nio import (
     RoomLeaveError,
     RoomSendError,
     RoomVisibility,
-    RoomCreateResponse,
     RoomCreateError,
 )
 from nio.crypto import Olm
 
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List
 from configparser import ConfigParser
 from datetime import datetime
 from io import BytesIO
@@ -174,7 +173,7 @@ class GPTBot:
 
     async def _last_n_messages(self, room: str | MatrixRoom, n: Optional[int]):
         messages = []
-        n = n or bot.max_messages
+        n = n or self.max_messages
         room_id = room.room_id if isinstance(room, MatrixRoom) else room
 
         self.logger.log(
@@ -585,7 +584,7 @@ class GPTBot:
             self.logger.log(
                 "No database connection set up, using in-memory database. Data will be lost on bot shutdown.")
             IN_MEMORY = True
-            self.database = DuckDBPyConnection(":memory:")
+            self.database = duckdb.DuckDBPyConnection(":memory:")
 
         self.logger.log("Running migrations...")
         before, after = migrate(self.database)
@@ -747,8 +746,14 @@ class GPTBot:
         await self.matrix_client.room_read_markers(room.room_id, event.event_id)
 
         if (not from_chat_command) and self.room_uses_classification(room):
-            classification, tokens = self.classification_api.classify_message(
-                event.body, room.room_id)
+            try:
+                classification, tokens = await self.classification_api.classify_message(
+                    event.body, room.room_id)
+            except Exception as e:
+                self.logger.log(f"Error classifying message: {e}", "error")
+                await self.send_message(
+                    room, "Something went wrong. Please try again.", True)
+                return
 
             self.log_api_usage(
                 event, room, f"{self.classification_api.api_code}-{self.classification_api.classification_api}", tokens)
@@ -782,7 +787,7 @@ class GPTBot:
             chat_messages, self.max_tokens - 1, system_message=system_message)
 
         try:
-            response, tokens_used = self.chat_api.generate_chat_response(
+            response, tokens_used = await self.chat_api.generate_chat_response(
                 chat_messages, user=room.room_id)
         except Exception as e:
             self.logger.log(f"Error generating response: {e}", "error")
@@ -803,7 +808,7 @@ class GPTBot:
         else:
             # Send a notice to the room if there was an error
             self.logger.log("Didn't get a response from GPT API", "error")
-            await send_message(
+            await self.send_message(
                 room, "Something went wrong. Please try again.", True)
 
         await self.matrix_client.room_typing(room.room_id, False)

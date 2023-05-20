@@ -8,7 +8,12 @@ async def command_imagine(room: MatrixRoom, event: RoomMessageText, bot):
     if prompt:
         bot.logger.log("Generating image...")
 
-        images, tokens_used = bot.image_api.generate_image(prompt, user=room.room_id)
+        try:
+            images, tokens_used = await bot.image_api.generate_image(prompt, user=room.room_id)
+        except Exception as e:
+            bot.logger.log(f"Error generating image: {e}", "error")
+            await bot.send_message(room, "Sorry, I couldn't generate an image. Please try again later.", True)
+            return
 
         for image in images:
             bot.logger.log(f"Sending image...")

@@ -8,7 +8,12 @@ async def command_classify(room: MatrixRoom, event: RoomMessageText, bot):
     if prompt:
         bot.logger.log("Classifying message...")
 
-        response, tokens_used = bot.classification_api.classify_message(prompt, user=room.room_id)
+        try:
+            response, tokens_used = await bot.classification_api.classify_message(prompt, user=room.room_id)
+        except Exception as e:
+            bot.logger.log(f"Error classifying message: {e}", "error")
+            await bot.send_message(room, "Sorry, I couldn't classify the message. Please try again later.", True)
+            return
 
         message = f"The message you provided seems to be of type: {response['type']}."
 
