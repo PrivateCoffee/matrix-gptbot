@@ -24,7 +24,7 @@ def get_version(db: DuckDBPyConnection) -> int:
     try:
         return int(db.execute("SELECT MAX(id) FROM migrations").fetchone()[0])
     except:
-        return 1
+        return 0
 
 def migrate(db: DuckDBPyConnection, from_version: Optional[int] = None, to_version: Optional[int] = None) -> None:
     """Migrate the database to a specific version.
@@ -44,14 +44,8 @@ def migrate(db: DuckDBPyConnection, from_version: Optional[int] = None, to_versi
     if from_version > to_version:
         raise ValueError("Cannot migrate from a higher version to a lower version.")
 
-    # dont migrate if already at the target version
-    if from_version == to_version:
-        return from_version, to_version
-
-    print(f"Migrating from version {from_version} to {to_version}...")
-    for version in range(from_version, to_version + 1):
-        if version in MIGRATIONS:
-            print(f"Running migration {version}...")
-            MIGRATIONS[version](db)
+    for version in range(from_version, to_version):
+        if version + 1 in MIGRATIONS:
+            MIGRATIONS[version + 1](db)
 
     return from_version, to_version
