@@ -18,7 +18,7 @@ probably add more in the future, so the name is a bit misleading.
 - Automatic classification of messages (for `imagine`, `calculate`, etc.)
   - Beta feature, see Usage section for details
 - Really useful commands like `!gptbot help` and `!gptbot coin`
-- DuckDB database to store room context
+- sqlite3 database to store room settings
 
 ## Planned features
 
