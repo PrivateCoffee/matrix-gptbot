@@ -43,4 +43,4 @@ async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
 
     await bot.matrix_client.joined_rooms()
     await bot.send_message(room, f"Alright, I've created a new room called '{room_name}' and invited you to it. You can find it at {new_room.room_id}", True)
-    await bot.send_message(bot.rooms[new_room.room_id], f"Welcome to the new room! What can I do for you?")
+    await bot.send_message(bot.matrix_client.rooms[new_room.room_id], f"Welcome to the new room! What can I do for you?")
