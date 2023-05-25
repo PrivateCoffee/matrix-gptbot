@@ -66,13 +66,9 @@ cd matrix-gptbot
 python -m venv venv
 . venv/bin/activate
 
-# Install the requirements
-
-pip install -Ur requirements.txt
-
 # Install the bot in editable mode
 
-pip install -e .
+pip install -e .[dev]
 
 # Go to the bot directory and start working
 
