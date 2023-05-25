@@ -1,5 +1,6 @@
 *.db
 *.db.wal
+*.db-journal
 config.ini
 venv/
 *.pyc
