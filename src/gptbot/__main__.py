@@ -16,8 +16,16 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
         "--config",
+        "-c",
         help="Path to config file (default: config.ini in working directory)",
         default="config.ini",
+    )
+    parser.add_argument(
+        "--version",
+        "-v",
+        help="Print version and exit",
+        action="version",
+        version="GPTBot v0.1.0",
     )
     args = parser.parse_args()
 
