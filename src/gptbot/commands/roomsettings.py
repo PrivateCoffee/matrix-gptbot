@@ -1,6 +1,8 @@
 from nio.events.room_events import RoomMessageText
 from nio.rooms import MatrixRoom
 
+from contextlib import closing
+
 
 async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
     setting = event.body.split()[2] if len(event.body.split()) > 2 else None
@@ -16,7 +18,7 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
         if value:
             bot.logger.log("Adding system message...")
 
-            with bot.database.cursor() as cur:
+            with closing(bot.database.cursor()) as cur:
                 cur.execute(
                     """INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)
                     ON CONFLICT (room_id, setting) DO UPDATE SET value = ?;""",
@@ -40,7 +42,7 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
 
                 bot.logger.log(f"Setting {setting} status for {room.room_id} to {value}...")
 
-                with bot.database.cursor() as cur:
+                with closing(bot.database.cursor()) as cur:
                     cur.execute(
                         """INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)
                         ON CONFLICT (room_id, setting) DO UPDATE SET value = ?;""",
@@ -55,7 +57,7 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
 
         bot.logger.log(f"Retrieving {setting} status for {room.room_id}...")
 
-        with bot.database.cursor() as cur:
+        with closing(bot.database.cursor()) as cur:
             cur.execute(
                 """SELECT value FROM room_settings WHERE room_id = ? AND setting = ?;""",
                 (room.room_id, setting)

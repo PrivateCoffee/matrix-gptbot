@@ -24,7 +24,7 @@ for command in [
     "space",
 ]:
     function = getattr(import_module(
-        "commands." + command), "command_" + command)
+        "." + command, "gptbot.commands"), "command_" + command)
     COMMANDS[command] = function
 
 COMMANDS[None] = command_unknown

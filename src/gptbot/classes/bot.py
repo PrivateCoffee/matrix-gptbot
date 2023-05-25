@@ -1,5 +1,4 @@
 import markdown2
-import duckdb
 import tiktoken
 import asyncio
 import functools
@@ -30,30 +29,34 @@ from nio import (
     RoomCreateError,
 )
 from nio.crypto import Olm
+from nio.store import SqliteStore
 
 from typing import Optional, List
 from configparser import ConfigParser
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from contextlib import closing
 
 import uuid
 import traceback
 import json
+import importlib.util
+import sys
+import sqlite3
 
 from .logging import Logger
-from migrations import migrate
-from callbacks import RESPONSE_CALLBACKS, EVENT_CALLBACKS
-from commands import COMMANDS
-from .store import DuckDBStore
+from ..migrations import migrate
+from ..callbacks import RESPONSE_CALLBACKS, EVENT_CALLBACKS
+from ..commands import COMMANDS
 from .openai import OpenAI
 from .wolframalpha import WolframAlpha
 from .trackingmore import TrackingMore
 
-
 class GPTBot:
     # Default values
-    database: Optional[duckdb.DuckDBPyConnection] = None
+    database: Optional[sqlite3.Connection] = None
+    crypto_store_path: Optional[str|Path] = None
     # Default name of rooms created by the bot
     display_name = default_room_name = "GPTBot"
     default_system_message: str = "You are a helpful assistant."
@@ -90,8 +93,10 @@ class GPTBot:
         bot = cls()
 
         # Set the database connection
-        bot.database = duckdb.connect(
+        bot.database = sqlite3.connect(
             config["Database"]["Path"]) if "Database" in config and "Path" in config["Database"] else None
+
+        bot.crypto_store_path = config["Database"]["CryptoStore"] if "Database" in config and "CryptoStore" in config["Database"] else None
 
         # Override default values
         if "GPTBot" in config:
@@ -290,7 +295,7 @@ class GPTBot:
         """
         room_id = room.room_id if isinstance(room, MatrixRoom) else room
 
-        with self.database.cursor() as cursor:
+        with closing(self.database.cursor()) as cursor:
             cursor.execute(
                 "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room_id, "use_classification"))
             result = cursor.fetchone()
@@ -362,7 +367,7 @@ class GPTBot:
         """
         room_id = room.room_id
 
-        with self.database.cursor() as cursor:
+        with closing(self.database.cursor()) as cursor:
             cursor.execute(
                 "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room_id, "use_timing"))
             result = cursor.fetchone()
@@ -584,10 +589,17 @@ class GPTBot:
             self.logger.log(
                 "No database connection set up, using in-memory database. Data will be lost on bot shutdown.")
             IN_MEMORY = True
-            self.database = duckdb.DuckDBPyConnection(":memory:")
+            self.database = sqlite3.connect(":memory:")
 
         self.logger.log("Running migrations...")
-        before, after = migrate(self.database)
+
+        try:
+            before, after = migrate(self.database)
+        except sqlite3.DatabaseError as e:
+            self.logger.log(f"Error migrating database: {e}", "fatal")
+            self.logger.log("If you have just updated the bot, the previous version of the database may be incompatible with this version. Please delete the database file and try again.", "fatal")
+            exit(1)
+
         if before != after:
             self.logger.log(f"Migrated from version {before} to {after}.")
         else:
@@ -597,14 +609,14 @@ class GPTBot:
             client_config = AsyncClientConfig(
                 store_sync_tokens=True, encryption_enabled=False)
         else:
-            matrix_store = DuckDBStore
+            matrix_store = SqliteStore
             client_config = AsyncClientConfig(
                 store_sync_tokens=True, encryption_enabled=True, store=matrix_store)
             self.matrix_client.config = client_config
             self.matrix_client.store = matrix_store(
                 self.matrix_client.user_id,
                 self.matrix_client.device_id,
-                self.database
+                self.crypto_store_path or ""
             )
 
             self.matrix_client.olm = Olm(
@@ -722,7 +734,7 @@ class GPTBot:
         if isinstance(room, MatrixRoom):
             room = room.room_id
 
-        with self.database.cursor() as cursor:
+        with closing(self.database.cursor()) as cursor:
             cursor.execute(
                 "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "always_reply"))
             result = cursor.fetchone()
@@ -830,7 +842,7 @@ class GPTBot:
         else:
             room_id = room.room_id
 
-        with self.database.cursor() as cur:
+        with closing(self.database.cursor()) as cur:
             cur.execute(
                 "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?",
                 (room_id, "system_message")

@@ -1,9 +1,10 @@
 # Migration to add user_spaces table
 
 from datetime import datetime
+from contextlib import closing
 
 def migration(conn):
-    with conn.cursor() as cursor:
+    with closing(conn.cursor()) as cursor:
         cursor.execute(
             """
             CREATE TABLE user_spaces (

@@ -1,4 +1,4 @@
-from classes.bot import GPTBot
+from .classes.bot import GPTBot
 
 from argparse import ArgumentParser
 from configparser import ConfigParser
@@ -15,7 +15,10 @@ if __name__ == "__main__":
     # Parse command line arguments
     parser = ArgumentParser()
     parser.add_argument(
-        "--config", help="Path to config file (default: config.ini in working directory)", default="config.ini")
+        "--config",
+        help="Path to config file (default: config.ini in working directory)",
+        default="config.ini",
+    )
     args = parser.parse_args()
 
     # Read config file

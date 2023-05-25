@@ -26,12 +26,61 @@ probably add more in the future, so the name is a bit misleading.
 
 ## Installation
 
-Simply clone this repository and install the requirements.
+To run the bot, you will need Python 3.10 or newer. 
 
-### Requirements
+The bot has been tested with Python 3.11 on Arch, but should work with any 
+current version, and should not require any special dependencies or operating
+system features.
 
-- Python 3.10 or later
-- Requirements from `requirements.txt` (install with `pip install -r requirements.txt` in a venv)
+### Production
+
+The easiest way to install the bot is to use pip to install it directly from
+[its Git repository](https://kumig.it/kumitterer/matrix-gptbot/):
+
+```shell
+# If desired, activate a venv first
+
+python -m venv venv
+. venv/bin/activate
+
+# Install the bot
+
+pip install git+https://kumig.it/kumitterer/matrix-gptbot.git
+```
+
+This will install the bot from the main branch and all required dependencies.
+A release to PyPI is planned, but not yet available.
+
+### Development
+
+Clone the repository and install the requirements to a virtual environment. 
+
+```shell
+# Clone the repository
+
+git clone https://kumig.it/kumitterer/matrix-gptbot.git
+cd matrix-gptbot
+
+# If desired, activate a venv first
+
+python -m venv venv
+. venv/bin/activate
+
+# Install the requirements
+
+pip install -Ur requirements.txt
+
+# Install the bot in editable mode
+
+pip install -e .
+
+# Go to the bot directory and start working
+
+cd src/gptbot
+```
+
+Of course, you can also fork the repository on [GitHub](https://github.com/kumitterer/matrix-gptbot/)
+and work on your own copy.
 
 ### Configuration
 

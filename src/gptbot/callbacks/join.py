@@ -1,10 +1,12 @@
+from contextlib import closing
+
 async def join_callback(response, bot):
     bot.logger.log(
         f"Join response received for room {response.room_id}", "debug")
     
     bot.matrix_client.joined_rooms()
 
-    with bot.database.cursor() as cursor:
+    with closing(bot.database.cursor()) as cursor:
         cursor.execute(
             "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (event.sender,))
         space = cursor.fetchone()

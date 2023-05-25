@@ -1,5 +1,5 @@
 [Unit]
-Description=GPTbot - A GPT bot for Matrix
+Description=GPTbot - A multifunctional Chatbot for Matrix
 Requires=network.target
 
 [Service]

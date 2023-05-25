@@ -1,9 +1,10 @@
 # Migration to drop primary key constraint from token_usage table
 
 from datetime import datetime
+from contextlib import closing
 
 def migration(conn):
-    with conn.cursor() as cursor:
+    with closing(conn.cursor()) as cursor:
         cursor.execute(
             """
             CREATE TABLE token_usage_temp (

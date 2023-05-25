@@ -2,6 +2,7 @@ from nio.events.room_events import RoomMessageText
 from nio import RoomCreateError, RoomInviteError
 from nio.rooms import MatrixRoom
 
+from contextlib import closing
 
 async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
     room_name = " ".join(event.body.split()[
@@ -23,7 +24,7 @@ async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
         await bot.send_message(room, f"Sorry, I was unable to invite you to the new room. Please try again later, or create a room manually.", True)
         return
 
-    with bot.database.cursor() as cursor:
+    with closing(bot.database.cursor()) as cursor:
         cursor.execute(
             "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (event.sender,))
         space = cursor.fetchone()

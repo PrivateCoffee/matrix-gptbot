@@ -4,3 +4,4 @@ config.ini
 venv/
 *.pyc
 __pycache__/
+*.bak

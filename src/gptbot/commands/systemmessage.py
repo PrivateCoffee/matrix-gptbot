@@ -1,6 +1,8 @@
 from nio.events.room_events import RoomMessageText
 from nio.rooms import MatrixRoom
 
+from contextlib import closing
+
 
 async def command_systemmessage(room: MatrixRoom, event: RoomMessageText, bot):
     system_message = " ".join(event.body.split()[2:])
@@ -8,7 +10,7 @@ async def command_systemmessage(room: MatrixRoom, event: RoomMessageText, bot):
     if system_message:
         bot.logger.log("Adding system message...")
 
-        with bot.database.cursor() as cur:
+        with closing(bot.database.cursor()) as cur:
             cur.execute(
                 """
                 INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)

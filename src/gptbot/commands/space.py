@@ -2,6 +2,8 @@ from nio.events.room_events import RoomMessageText
 from nio.rooms import MatrixRoom
 from nio.responses import RoomInviteError
 
+from contextlib import closing
+
 
 async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
     if len(event.body.split()) == 3:
@@ -10,7 +12,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
         if request.lower() == "enable":
             bot.logger.log("Enabling space...")
 
-            with bot.database.cursor() as cursor:
+            with closing(bot.database.cursor()) as cursor:
                 cursor.execute(
                     "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (event.sender,))
                 space = cursor.fetchone()
@@ -25,7 +27,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
                         "url": bot.logo_uri
                     }, "")
 
-                with bot.database.cursor() as cursor:
+                with closing(bot.database.cursor()) as cursor:
                     cursor.execute(
                         "INSERT INTO user_spaces (space_id, user_id) VALUES (?, ?)", (space, event.sender))
 
@@ -48,7 +50,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
         elif request.lower() == "disable":
             bot.logger.log("Disabling space...")
 
-            with bot.database.cursor() as cursor:
+            with closing(bot.database.cursor()) as cursor:
                 cursor.execute(
                     "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (event.sender,))
                 space = cursor.fetchone()[0]
@@ -58,7 +60,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
                 await bot.send_message(room, "You don't have a space enabled.", True)
                 return
 
-            with bot.database.cursor() as cursor:
+            with closing(bot.database.cursor()) as cursor:
                 cursor.execute(
                     "UPDATE user_spaces SET active = FALSE WHERE user_id = ?", (event.sender,))
 
@@ -69,7 +71,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
         if request.lower() == "update":
             bot.logger.log("Updating space...")
 
-            with bot.database.cursor() as cursor:
+            with closing(bot.database.cursor()) as cursor:
                 cursor.execute(
                     "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (event.sender,))
                 space = cursor.fetchone()[0]
@@ -103,7 +105,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
         if request.lower() == "invite":
             bot.logger.log("Inviting user to space...")
 
-            with bot.database.cursor() as cursor:
+            with closing(bot.database.cursor()) as cursor:
                 cursor.execute(
                     "SELECT space_id FROM user_spaces WHERE user_id = ?", (event.sender,))
                 space = cursor.fetchone()[0]
@@ -126,7 +128,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
             await bot.send_message(room, "Invited you to the space.", True)
             return
 
-    with bot.database.cursor() as cursor:
+    with closing(bot.database.cursor()) as cursor:
         cursor.execute(
             "SELECT active FROM user_spaces WHERE user_id = ?", (event.sender,))
         status = cursor.fetchone()
