@@ -29,6 +29,7 @@ class OpenAI:
         self.api_key = api_key
         self.chat_model = chat_model or self.chat_model
         self.logger = logger or Logger()
+        self.base_url = openai.api_base
 
     async def _request_with_retries(self, request: partial, attempts: int = 5, retry_interval: int = 2) -> AsyncGenerator[Any | list | Dict, None]:
         """Retry a request a set number of times if it fails.
@@ -73,7 +74,8 @@ class OpenAI:
                 model=self.chat_model,
                 messages=messages,
                 api_key=self.api_key,
-                user=user
+                user=user,
+                api_base=self.base_url,
         )
         response = await self._request_with_retries(chat_partial)
 
@@ -115,7 +117,8 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
                 model=self.chat_model,
                 messages=messages,
                 api_key=self.api_key,
-                user=user
+                user=user,
+                api_base=self.base_url,
         )
         response = await self._request_with_retries(chat_partial)
 
@@ -147,7 +150,8 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
                 n=1,
                 api_key=self.api_key,
                 size="1024x1024",
-                user=user
+                user=user,
+                api_base=self.base_url,
         )
         response = await self._request_with_retries(image_partial)
 

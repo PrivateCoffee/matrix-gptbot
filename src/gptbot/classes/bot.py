@@ -143,6 +143,10 @@ class GPTBot:
         bot.max_tokens = config["OpenAI"].getint("MaxTokens", bot.max_tokens)
         bot.max_messages = config["OpenAI"].getint("MaxMessages", bot.max_messages)
 
+        if "BaseURL" in config["OpenAI"]:
+            bot.chat_api.base_url = config["OpenAI"]["BaseURL"]
+            bot.image_api = None
+
         # Set up WolframAlpha
         if "WolframAlpha" in config:
             bot.calculation_api = WolframAlpha(
