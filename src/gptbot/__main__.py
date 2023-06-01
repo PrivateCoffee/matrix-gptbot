@@ -25,7 +25,7 @@ if __name__ == "__main__":
         "-v",
         help="Print version and exit",
         action="version",
-        version="GPTBot v0.1.0",
+        version="GPTBot v0.1.1",
     )
     args = parser.parse_args()
 
