@@ -2,7 +2,8 @@ from collections import OrderedDict
 from typing import Optional
 from importlib import import_module
 
-from duckdb import DuckDBPyConnection
+from peewee import SqliteDatabase
+
 
 MAX_MIGRATION = 8
 
@@ -11,7 +12,7 @@ MIGRATIONS = OrderedDict()
 for i in range(1, MAX_MIGRATION + 1):
     MIGRATIONS[i] = import_module(f".migration_{i}", __package__).migration
 
-def get_version(db: DuckDBPyConnection) -> int:
+def get_version(db: SqliteDatabase) -> int:
     """Get the current database version.
 
     Args:
@@ -26,7 +27,7 @@ def get_version(db: DuckDBPyConnection) -> int:
     except:
         return 0
 
-def migrate(db: DuckDBPyConnection, from_version: Optional[int] = None, to_version: Optional[int] = None) -> None:
+def migrate(db: SqliteDatabase, from_version: Optional[int] = None, to_version: Optional[int] = None) -> None:
     """Migrate the database to a specific version.
 
     Args:

@@ -699,7 +699,8 @@ class GPTBot:
             self.matrix_client.store = matrix_store(
                 self.matrix_client.user_id,
                 self.matrix_client.device_id,
-                self.crypto_store_path or "",
+                '.', #store path
+                database_name=self.crypto_store_path or "",
             )
 
             self.matrix_client.olm = Olm(
