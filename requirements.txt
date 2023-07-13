@@ -1,5 +1,5 @@
 openai
-matrix-nio[e2e]
+mautrix
 markdown2[all]
 tiktoken
 duckdb

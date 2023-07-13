@@ -12,6 +12,8 @@ from nio import (
     Response,
 )
 
+from mautrix.types import Event, MessageEvent, StateEvent
+
 from .test import test_callback
 from .sync import sync_callback
 from .invite import room_invite_callback
@@ -28,8 +30,5 @@ RESPONSE_CALLBACKS = {
 
 EVENT_CALLBACKS = {
     Event: test_callback,
-    InviteEvent: room_invite_callback,
-    RoomMessageText: message_callback,
-    MegolmEvent: message_callback,
-    RoomMemberEvent: roommember_callback,
+    MessageEvent: message_callback,
 }
