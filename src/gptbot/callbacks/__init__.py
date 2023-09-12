@@ -29,6 +29,5 @@ RESPONSE_CALLBACKS = {
 }
 
 EVENT_CALLBACKS = {
-    Event: test_callback,
     MessageEvent: message_callback,
 }

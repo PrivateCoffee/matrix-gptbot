@@ -461,10 +461,13 @@ class GPTBot:
 
         self.logger.log("Sent image", "debug")
 
-    async def handle_event(self, *args, **kwargs):
+    async def handle_event(self, event):
         """Handle an event."""
 
-        self.logger.log(f"Handling event: {args} {kwargs}", "debug")
+        for event_type, callback in EVENT_CALLBACKS.items():
+            if isinstance(event, event_type):
+                print(event_type, callback)
+                await callback(event, self)
 
     async def send_message(
         self, room: RoomID | str, message: str, notice: bool = False
