@@ -21,13 +21,14 @@ class OpenAI:
         return self.chat_model
 
     classification_api = chat_api
-    image_api: str = "dalle"
+    image_model: str = "dall-e-2"
 
     operator: str = "OpenAI ([https://openai.com](https://openai.com))"
 
-    def __init__(self, api_key, chat_model=None, logger=None):
+    def __init__(self, api_key, chat_model=None, image_model=None, logger=None):
         self.api_key = api_key
         self.chat_model = chat_model or self.chat_model
+        self.image_model = image_model or self.image_model
         self.logger = logger or Logger()
         self.base_url = openai.api_base
 
@@ -146,6 +147,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         image_partial = partial(
             openai.Image.acreate,
+                model=self.image_model,
                 prompt=prompt,
                 n=1,
                 api_key=self.api_key,

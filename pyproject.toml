@@ -18,10 +18,6 @@ readme = "README.md"
 license = { file="LICENSE" }
 requires-python = ">=3.10"
 
-packages = [
-    "src/gptbot"
-]
-
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -29,12 +25,16 @@ classifiers = [
 ]
 
 dependencies = [
-    "matrix-nio[e2e]",
+    "mautrix[all]",
     "markdown2[all]",
     "tiktoken",
     "python-magic",
     "pillow",
     ]
+
+packages = [
+    { include = "gptbot", where = "src" },
+]
 
 [project.optional-dependencies]
 openai = [
@@ -62,7 +62,10 @@ dev = [
 "Bug Tracker" = "https://kumig.it/kumitterer/matrix-gptbot/issues"
 
 [project.scripts]
-gptbot = "gptbot:main"
+gptbot = "gptbot.__main___:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/gptbot"]
+only-include = ["src/gptbot"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""

@@ -10,8 +10,7 @@ import asyncio
 def sigterm_handler(_signo, _stack_frame):
     exit()
 
-
-if __name__ == "__main__":
+def main():
     # Parse command line arguments
     parser = ArgumentParser()
     parser.add_argument(
@@ -46,3 +45,7 @@ if __name__ == "__main__":
         print("Received KeyboardInterrupt - exiting...")
     except SystemExit:
         print("Received SIGTERM - exiting...")
+
+
+if __name__ == "__main__":
+    main()
