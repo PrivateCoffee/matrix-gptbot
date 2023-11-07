@@ -119,6 +119,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
                 api_key=self.api_key,
                 user=user,
                 api_base=self.base_url,
+                quality=("hd" if model == "dall-e-3" else "normal")
         )
         response = await self._request_with_retries(chat_partial)
 
