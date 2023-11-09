@@ -33,7 +33,7 @@ async def message_callback(room: MatrixRoom | str, event: RoomMessageText | Mego
     if event.sender == bot.matrix_client.user_id:
         bot.logger.log("Message is from bot itself - ignoring")
 
-    elif event.body.startswith("!gptbot"):
+    elif event.body.startswith("!gptbot") or event.body.startswith("* !gptbot"):
         await bot.process_command(room, event)
 
     elif event.body.startswith("!"):

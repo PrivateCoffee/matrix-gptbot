@@ -195,7 +195,7 @@ class GPTBot:
 
         return user_id
 
-    async def _last_n_messages(self, room: str | MatrixRoom, n: Optional[int]):
+    async def _last_n_messages(self, room: str | MatrixRoom, n: Optional[int], ignore_bot_commands: bool = True):
         messages = []
         n = n or self.max_messages
         room_id = room.room_id if isinstance(room, MatrixRoom) else room
@@ -233,7 +233,7 @@ class GPTBot:
                 if event.body.startswith("!gptbot ignoreolder"):
                     break
                 if (not event.body.startswith("!")) or (
-                    event.body.startswith("!gptbot")
+                    event.body.startswith("!gptbot") and not ignore_bot_commands
                 ):
                     messages.append(event)
 
@@ -319,6 +319,10 @@ class GPTBot:
             f"Received command {event.body} from {event.sender} in room {room.room_id}",
             "debug",
         )
+
+        if event.body.startswith("* "):
+            event.body = event.body[2:]
+
         command = event.body.split()[1] if event.body.split()[1:] else None
 
         await COMMANDS.get(command, COMMANDS[None])(room, event, self)
