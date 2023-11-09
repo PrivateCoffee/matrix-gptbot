@@ -321,9 +321,9 @@ class GPTBot:
         )
 
         if event.body.startswith("* "):
-            event.body = event.body[2:]
-
-        command = event.body.split()[1] if event.body.split()[1:] else None
+            command = event.body[2:].split()[1] if event.body.split()[1:] else None
+        else:
+            command = event.body.split()[1] if event.body.split()[1:] else None
 
         await COMMANDS.get(command, COMMANDS[None])(room, event, self)
 
