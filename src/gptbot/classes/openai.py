@@ -28,8 +28,12 @@ class OpenAI:
     def __init__(self, api_key, chat_model=None, image_model=None, logger=None):
         self.api_key = api_key
         self.chat_model = chat_model or self.chat_model
+        self.image_model = image_model or self.image_model
         self.logger = logger or Logger()
         self.base_url = openai.api_base
+
+    def supports_chat_images(self):
+        return "vision" in self.chat_model
 
     async def _request_with_retries(self, request: partial, attempts: int = 5, retry_interval: int = 2) -> AsyncGenerator[Any | list | Dict, None]:
         """Retry a request a set number of times if it fails.
