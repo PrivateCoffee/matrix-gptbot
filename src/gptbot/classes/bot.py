@@ -250,8 +250,7 @@ class GPTBot:
 
             if isinstance(event, RoomMessageMedia):
                 if event.sender != self.matrix_client.user_id:
-                    if len(messages) < 2 or isinstance(messages[-1], RoomMessageMedia):
-                        messages.append(event)
+                    messages.append(event)
 
         self.logger.log(f"Found {len(messages)} messages (limit: {n})", "debug")
 
@@ -922,39 +921,35 @@ class GPTBot:
 
         chat_messages = [{"role": "system", "content": system_message}]
 
-        text_messages = list(filter(lambda x: not isinstance(x, RoomMessageMedia), last_messages))
+        last_messages = [event] + last_messages
 
-        for message in text_messages:
-            role = (
-                "assistant" if message.sender == self.matrix_client.user_id else "user"
-            )
-            if not message.event_id == event.event_id:
-                chat_messages.append({"role": role, "content": message.body})
+        for message in last_messages:
+            if isinstance(message, (RoomMessageNotice, RoomMessageText)):
+                role = (
+                    "assistant" if message.sender == self.matrix_client.user_id else "user"
+                )
+                if message == event or (not message.event_id == event.event_id):
+                    message_body = message.body if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message.body}]
+                    chat_messages.append({"role": role, "content": message_body})
 
-        if not self.chat_api.supports_chat_images():
-            event_body = event.body
-        else:
-            event_body = [
-                {
-                    "type": "text",
-                    "text": event.body
-                }
-            ]
-
-            for m in list(filter(lambda x: isinstance(x, RoomMessageMedia), last_messages)):
-                image_url = m.url
+            if self.chat_api.supports_chat_images() and isinstance(message, RoomMessageMedia):
+                image_url = message.url
                 download = await self.download_file(image_url)
 
                 if download:
                     encoded_url = f"data:{download.content_type};base64,{base64.b64encode(download.body).decode('utf-8')}"
-                    event_body.append({
+                    parent = chat_messages[-1] if chat_messages and chat_messages[-1]["role"] == ("assistant" if message.sender == self.matrix_client.user_id else "user") else None
+
+                    if not parent:
+                        chat_messages.append({"role": ("assistant" if message.sender == self.matrix_client.user_id else "user"), "content": []})
+                        parent = chat_messages[-1]
+
+                    parent["content"].append({
                         "type": "image_url",
                         "image_url": {
                             "url": encoded_url
                         }
                     })
-
-        chat_messages.append({"role": "user", "content": event_body})
 
         # Truncate messages to fit within the token limit
         truncated_messages = self._truncate(
