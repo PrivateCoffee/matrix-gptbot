@@ -921,7 +921,7 @@ class GPTBot:
 
         chat_messages = [{"role": "system", "content": system_message}]
 
-        last_messages = [event] + last_messages
+        last_messages = last_messages + [event]
 
         for message in last_messages:
             if isinstance(message, (RoomMessageNotice, RoomMessageText)):
@@ -953,7 +953,7 @@ class GPTBot:
 
         # Truncate messages to fit within the token limit
         truncated_messages = self._truncate(
-            chat_messages, self.max_tokens - 1, system_message=system_message
+            chat_messages[1:], self.max_tokens - 1, system_message=system_message
         )
 
         try:
@@ -977,8 +977,6 @@ class GPTBot:
             )
 
             self.logger.log(f"Sending response to room {room.room_id}...")
-
-            # Convert markdown to HTML
 
             message = await self.send_message(room, response)
 
