@@ -83,10 +83,6 @@ class OpenAI:
         )
         response = await self._request_with_retries(chat_partial)
 
-        self.logger.log(response, "error")
-        self.logger.log(response.choices, "error")
-        self.logger.log(response.choices[0].message, "error")
-
         result_text = response.choices[0].message.content
         tokens_used = response.usage.total_tokens
         self.logger.log(f"Generated response with {tokens_used} tokens.")
