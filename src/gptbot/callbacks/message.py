@@ -1,34 +1,13 @@
-from nio import MatrixRoom, RoomMessageText, MegolmEvent, RoomKeyRequestError, RoomKeyRequestResponse
+from nio import MatrixRoom, RoomMessageText
 
 from datetime import datetime
 
-async def message_callback(room: MatrixRoom | str, event: RoomMessageText | MegolmEvent, bot):
+async def message_callback(room: MatrixRoom | str, event: RoomMessageText, bot):
     bot.logger.log(f"Received message from {event.sender} in room {room.room_id}")
 
     sent = datetime.fromtimestamp(event.server_timestamp / 1000)
     received = datetime.now()
     latency = received - sent
-
-    if isinstance(event, MegolmEvent):
-        try:
-            event = await bot.matrix_client.decrypt_event(event)
-        except Exception as e:
-            try:
-                bot.logger.log("Requesting new encryption keys...")
-                response = await bot.matrix_client.request_room_key(event)
-
-                if isinstance(response, RoomKeyRequestError):
-                    bot.logger.log(f"Error requesting encryption keys: {response}", "error")
-                elif isinstance(response, RoomKeyRequestResponse):
-                    bot.logger.log(f"Encryption keys received: {response}", "debug")
-                    bot.matrix_bot.olm.handle_response(response)
-                    event = await bot.matrix_client.decrypt_event(event)
-            except:
-                pass
-
-            bot.logger.log(f"Error decrypting message: {e}", "error")
-            await bot.send_message(room, "Sorry, I couldn't decrypt that message. Please try again later or switch to a room without encryption.", True)
-            return
 
     if event.sender == bot.matrix_client.user_id:
         bot.logger.log("Message is from bot itself - ignoring")

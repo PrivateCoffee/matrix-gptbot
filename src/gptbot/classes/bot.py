@@ -33,9 +33,14 @@ from nio import (
     RoomMessageAudio,
     DownloadError,
     DownloadResponse,
+    RoomKeyRequest,
+    RoomKeyRequestError,
+    ToDeviceEvent,
+    ToDeviceError,
 )
 from nio.crypto import Olm
 from nio.store import SqliteStore
+
 
 from typing import Optional, List
 from configparser import ConfigParser
@@ -227,6 +232,16 @@ class GPTBot:
         for event in response.chunk:
             if len(messages) >= n:
                 break
+
+            if isinstance(event, ToDeviceEvent):
+                try:
+                    event = await self.matrix_client.decrypt_to_device_event(event)
+                except ToDeviceError:
+                    self.logger.log(
+                        f"Could not decrypt message {event.event_id} in room {room_id}",
+                        "error",
+                    )
+                    continue
 
             if isinstance(event, MegolmEvent):
                 try:
@@ -458,7 +473,7 @@ class GPTBot:
 
         invites = self.matrix_client.invited_rooms
 
-        for invite in invites.keys():
+        for invite in [k for k in invites.keys()]:
             if invite in self.room_ignore_list:
                 self.logger.log(
                     f"Ignoring invite to room {invite} (room is in ignore list)",
@@ -734,7 +749,7 @@ class GPTBot:
             )
 
         # Run initial sync (now includes joining rooms)
-        sync = await self.matrix_client.sync(timeout=30000)
+        sync = await self.matrix_client.sync(timeout=30000, full_state=True)
         if isinstance(sync, SyncResponse):
             await self.response_callback(sync)
         else:
@@ -773,10 +788,18 @@ class GPTBot:
         # Start syncing events
         self.logger.log("Starting sync loop...", "warning")
         try:
-            await self.matrix_client.sync_forever(timeout=30000)
+            await self.matrix_client.sync_forever(timeout=30000, full_state=True)
         finally:
             self.logger.log("Syncing one last time...", "warning")
-            await self.matrix_client.sync(timeout=30000)
+            await self.matrix_client.sync(timeout=30000, full_state=True)
+
+    async def request_keys(session_id, room_id):
+        request = RoomKeyRequest(session_id, room_id)
+        response = await client.send(request)
+        if isinstance(response, RoomKeyRequestError):
+            print(f"Failed to request keys for session {session_id}: {response.message}")
+        else:
+            print(f"Requested keys for session {session_id}")
 
     async def create_space(self, name, visibility=RoomVisibility.private) -> str:
         """Create a space.
