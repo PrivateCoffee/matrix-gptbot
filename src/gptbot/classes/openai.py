@@ -25,12 +25,13 @@ class OpenAI:
 
     operator: str = "OpenAI ([https://openai.com](https://openai.com))"
 
-    def __init__(self, api_key, chat_model=None, image_model=None, logger=None):
+    def __init__(self, api_key, chat_model=None, image_model=None, base_url=None, logger=None):
         self.api_key = api_key
         self.chat_model = chat_model or self.chat_model
         self.image_model = image_model or self.image_model
         self.logger = logger or Logger()
-        self.base_url = openai.api_base
+        self.base_url = base_url or openai.base_url
+        self.openai_api = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
     def supports_chat_images(self):
         return "vision" in self.chat_model
@@ -74,18 +75,20 @@ class OpenAI:
 
 
         chat_partial = partial(
-            openai.ChatCompletion.acreate,
+            self.openai_api.chat.completions.create,
                 model=self.chat_model,
                 messages=messages,
-                api_key=self.api_key,
                 user=user,
-                api_base=self.base_url,
+                max_tokens=4096
         )
         response = await self._request_with_retries(chat_partial)
 
+        self.logger.log(response, "error")
+        self.logger.log(response.choices, "error")
+        self.logger.log(response.choices[0].message, "error")
 
-        result_text = response.choices[0].message['content']
-        tokens_used = response.usage["total_tokens"]
+        result_text = response.choices[0].message.content
+        tokens_used = response.usage.total_tokens
         self.logger.log(f"Generated response with {tokens_used} tokens.")
         return result_text, tokens_used
 
@@ -117,13 +120,10 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         self.logger.log(f"Classifying message '{query}'...")
 
         chat_partial = partial(
-            openai.ChatCompletion.acreate,
+            self.openai_api.chat.completions.create,
                 model=self.chat_model,
                 messages=messages,
-                api_key=self.api_key,
                 user=user,
-                api_base=self.base_url,
-                quality=("hd" if model == "dall-e-3" else "normal")
         )
         response = await self._request_with_retries(chat_partial)
 
@@ -150,14 +150,12 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         self.logger.log(f"Generating image from prompt '{prompt}'...")
 
         image_partial = partial(
-            openai.Image.acreate,
+            self.openai_api.images.generate,
                 model=self.image_model,
                 prompt=prompt,
                 n=1,
-                api_key=self.api_key,
                 size="1024x1024",
                 user=user,
-                api_base=self.base_url,
         )
         response = await self._request_with_retries(image_partial)
 

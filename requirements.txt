@@ -1,4 +1,4 @@
-openai
+openai>=1.2
 matrix-nio[e2e]
 markdown2[all]
 tiktoken
