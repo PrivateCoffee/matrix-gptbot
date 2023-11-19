@@ -167,7 +167,7 @@ class OpenAI:
         """
         self.logger.log(f"Generating response to {len(messages)} messages using {self.chat_model}...")
 
-        if self.room_uses_assistant(room):
+        if await self.room_uses_assistant(room):
             return await self.generate_assistant_response(messages, room, user)
 
         chat_partial = partial(
