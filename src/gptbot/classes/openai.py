@@ -225,13 +225,27 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         """
         self.logger.log(f"Generating image from prompt '{prompt}'...")
 
+        split_prompt = prompt.split()
+
+        size = "1024x1024"
+
+        if self.image_model == "dall-e-3":
+            if split_prompt[0] == "--portrait":
+                size = "1024x1792"
+                prompt = " ".join(split_prompt[1:])
+            elif split_prompt[0] == "--landscape":
+                size = "1792x1024"
+                prompt = " ".join(split_prompt[1:])
+
+        self.logger.log(f"Generating image with size {size} using model {self.image_model}...")
+
         image_partial = partial(
             self.openai_api.images.generate,
                 model=self.image_model,
                 quality="standard" if self.image_model != "dall-e-3" else "hd",
                 prompt=prompt,
                 n=1,
-                size="1024x1024",
+                size=size,
                 user=user,
         )
         response = await self._request_with_retries(image_partial)
