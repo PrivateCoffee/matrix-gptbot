@@ -120,6 +120,42 @@ class OpenAI:
 
         return assistant_id, thread_id
 
+    async def get_assistant_id(self, room: str) -> str:
+        """Get the assistant ID for a room.
+
+        Args:
+            room (str): The room to get the assistant ID for.
+
+        Returns:
+            str: The assistant ID.
+        """
+        with closing(self.bot.database.cursor()) as cursor:
+            cursor.execute("SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "openai_assistant"))
+            result = cursor.fetchone()
+
+        if result is None:
+            raise Exception("No assistant ID found for room.")
+
+        return result[0]
+
+    async def get_thread_id(self, room: str) -> str:
+        """Get the thread ID for a room.
+
+        Args:
+            room (str): The room to get the thread ID for.
+
+        Returns:
+            str: The thread ID.
+        """
+        with closing(self.bot.database.cursor()) as cursor:
+            cursor.execute("SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "openai_thread"))
+            result = cursor.fetchone()
+
+        if result is None:
+            raise Exception("No thread ID found for room.")
+
+        return result[0]
+
     async def generate_assistant_response(self, messages: List[Dict[str, str]], room: str, user: Optional[str] = None) -> Tuple[str, int]:
         """Generate a response to a chat message using an assistant.
 
