@@ -228,6 +228,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         image_partial = partial(
             self.openai_api.images.generate,
                 model=self.image_model,
+                quality="standard" if self.image_model != "dall-e-3" else "hd",
                 prompt=prompt,
                 n=1,
                 size="1024x1024",
