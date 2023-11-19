@@ -138,6 +138,22 @@ class OpenAI:
             user=user
         )
 
+    async def room_uses_assistant(self, room: str) -> bool:
+        """Returns whether a room uses an assistant.
+
+        Args:
+            room (str): The room to check.
+
+        Returns:
+            bool: Whether the room uses an assistant.
+        """
+
+        with closing(self.bot.database.cursor()) as cursor:
+            cursor.execute("SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "openai_assistant"))
+            result = cursor.fetchone()
+
+        return result is not None
+
     async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None, room: Optional[str] = None) -> Tuple[str, int]:
         """Generate a response to a chat message.
 
