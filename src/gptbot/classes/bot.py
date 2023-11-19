@@ -150,7 +150,7 @@ class GPTBot:
                 bot.allowed_users = json.loads(config["GPTBot"]["AllowedUsers"])
 
         bot.chat_api = bot.image_api = bot.classification_api = OpenAI(
-            config["OpenAI"]["APIKey"], config["OpenAI"].get("Model"),
+            bot, config["OpenAI"]["APIKey"], config["OpenAI"].get("Model"),
             config["OpenAI"].get("ImageModel"), config["OpenAI"].get("BaseURL"),  bot.logger
         )
         bot.max_tokens = config["OpenAI"].getint("MaxTokens", bot.max_tokens)

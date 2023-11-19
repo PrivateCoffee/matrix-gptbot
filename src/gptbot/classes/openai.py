@@ -4,10 +4,18 @@ import requests
 import asyncio
 import json
 from functools import partial
+from contextlib import closing
 
 from .logging import Logger
 
 from typing import Dict, List, Tuple, Generator, AsyncGenerator, Optional, Any
+
+ASSISTANT_CODE_INTERPRETER = [
+    {
+        "type": "code_interpreter",
+    },
+
+]
 
 class OpenAI:
     api_key: str
@@ -25,7 +33,8 @@ class OpenAI:
 
     operator: str = "OpenAI ([https://openai.com](https://openai.com))"
 
-    def __init__(self, api_key, chat_model=None, image_model=None, base_url=None, logger=None):
+    def __init__(self, bot, api_key, chat_model=None, image_model=None, base_url=None, logger=None):
+        self.bot = bot
         self.api_key = api_key
         self.chat_model = chat_model or self.chat_model
         self.image_model = image_model or self.image_model
@@ -62,17 +71,88 @@ class OpenAI:
         # if all attempts failed, raise an exception
         raise Exception("Request failed after all attempts.")
 
-    async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None) -> Tuple[str, int]:
+    async def create_assistant(self, system_message: str, tools: List[Dict[str, str]] = ASSISTANT_CODE_INTERPRETER) -> str:
+        """Create a new assistant.
+
+        Args:
+            system_message (str): The system message to use.
+            tools (List[Dict[str, str]], optional): The tools to use. Defaults to ASSISTANT_CODE_INTERPRETER.
+
+        Returns:
+            str: The assistant ID.
+        """
+        self.logger.log(f"Creating assistant with {len(tools)} tools...")
+        assistant_partial = partial(
+            self.openai_api.beta.assistants.create,
+                model=self.chat_model,
+                instructions=system_message,
+                tools=tools
+        )
+        response = await self._request_with_retries(assistant_partial)
+        assistant_id = response.id
+        self.logger.log(f"Created assistant with ID {assistant_id}.")
+        return assistant_id
+
+    async def create_thread(self):
+        # TODO: Implement
+        pass
+
+    async def setup_assistant(self, room: str, system_message: str, tools: List[Dict[str, str]] = ASSISTANT_CODE_INTERPRETER) -> Tuple[str, str]:
+        """Create a new assistant and set it up for a room.
+
+        Args:
+            room (str): The room to set up the assistant for.
+            system_message (str): The system message to use.
+            tools (List[Dict[str, str]], optional): The tools to use. Defaults to ASSISTANT_CODE_INTERPRETER.
+
+        Returns:
+            Tuple[str, str]: The assistant ID and the thread ID.
+        """
+        assistant_id = await self.create_assistant(system_message, tools)
+        thread_id = await self.create_thread() # TODO: Adapt to actual implementation
+
+        self.logger.log(f"Setting up assistant {assistant_id} with thread {thread_id} for room {room}...")
+
+        with closing(self.bot.database.cursor()) as cursor:
+            cursor.execute("INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)", (room, "openai_assistant", assistant_id))
+            cursor.execute("INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)", (room, "openai_thread", thread_id))
+            self.bot.database.commit()
+
+        return assistant_id, thread_id
+
+    async def generate_assistant_response(self, messages: List[Dict[str, str]], room: str, user: Optional[str] = None) -> Tuple[str, int]:
+        """Generate a response to a chat message using an assistant.
+
+        Args:
+            messages (List[Dict[str, str]]): A list of messages to use as context.
+            room (str): The room to use the assistant for.
+            user (Optional[str], optional): The user to use the assistant for. Defaults to None.
+
+        Returns:
+            Tuple[str, int]: The response text and the number of tokens used.
+        """
+        
+        self.openai_api.beta.threads.messages.create(
+            thread_id=self.get_thread_id(room),
+            messages=messages,
+            user=user
+        )
+
+    async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None, room: Optional[str] = None) -> Tuple[str, int]:
         """Generate a response to a chat message.
 
         Args:
             messages (List[Dict[str, str]]): A list of messages to use as context.
+            user (Optional[str], optional): The user to use the assistant for. Defaults to None.
+            room (Optional[str], optional): The room to use the assistant for. Defaults to None.
 
         Returns:
             Tuple[str, int]: The response text and the number of tokens used.
         """
         self.logger.log(f"Generating response to {len(messages)} messages using {self.chat_model}...")
 
+        if self.room_uses_assistant(room):
+            return await self.generate_assistant_response(messages, room, user)
 
         chat_partial = partial(
             self.openai_api.chat.completions.create,
