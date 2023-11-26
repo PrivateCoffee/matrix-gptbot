@@ -19,6 +19,7 @@ async def command_help(room: MatrixRoom, event: RoomMessageText, bot):
 - !gptbot chat \<message\> - Send a message to the chat API
 - !gptbot classify \<message\> - Classify a message using the classification API
 - !gptbot custom \<message\> - Used for custom commands handled by the chat model and defined through the room's system message
+- !gptbot roomsettings [use_classification|use_timing|always_reply|system_message|tts] [true|false|\<message\>] - Get or set room settings
 - !gptbot ignoreolder - Ignore messages before this point as context
 """
 

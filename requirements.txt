@@ -6,5 +6,6 @@ duckdb
 python-magic
 pillow
 wolframalpha
+pydub
 
 git+https://kumig.it/kumitterer/trackingmore-api-tool.git

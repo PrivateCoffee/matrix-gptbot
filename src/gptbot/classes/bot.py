@@ -83,6 +83,8 @@ class GPTBot:
     chat_api: Optional[OpenAI] = None
     image_api: Optional[OpenAI] = None
     classification_api: Optional[OpenAI] = None
+    tts_api: Optional[OpenAI] = None
+    stt_api: Optional[OpenAI] = None
     parcel_api: Optional[TrackingMore] = None
     operator: Optional[str] = None
     room_ignore_list: List[str] = []  # List of rooms to ignore invites from
@@ -149,9 +151,14 @@ class GPTBot:
             if "AllowedUsers" in config["GPTBot"]:
                 bot.allowed_users = json.loads(config["GPTBot"]["AllowedUsers"])
 
-        bot.chat_api = bot.image_api = bot.classification_api = OpenAI(
-            bot, config["OpenAI"]["APIKey"], config["OpenAI"].get("Model"),
-            config["OpenAI"].get("ImageModel"), config["OpenAI"].get("BaseURL"),  bot.logger
+        bot.chat_api = bot.image_api = bot.classification_api = bot.tts_api = bot.stt_api = OpenAI(
+            bot=bot,
+            api_key=config["OpenAI"]["APIKey"], 
+            chat_model=config["OpenAI"].get("Model"),
+            image_model=config["OpenAI"].get("ImageModel"),
+            tts_model=config["OpenAI"].get("TTSModel"),
+            stt_model=config["OpenAI"].get("STTModel"),
+            base_url=config["OpenAI"].get("BaseURL")
         )
         bot.max_tokens = config["OpenAI"].getint("MaxTokens", bot.max_tokens)
         bot.max_messages = config["OpenAI"].getint("MaxMessages", bot.max_messages)
@@ -207,7 +214,7 @@ class GPTBot:
 
         return user_id
 
-    async def _last_n_messages(self, room: str | MatrixRoom, n: Optional[int], ignore_bot_commands: bool = True):
+    async def _last_n_messages(self, room: str | MatrixRoom, n: Optional[int], ignore_bot_commands: bool = False):
         messages = []
         n = n or self.max_messages
         room_id = room.room_id if isinstance(room, MatrixRoom) else room
@@ -264,8 +271,7 @@ class GPTBot:
                     messages.append(event)
 
             if isinstance(event, RoomMessageMedia):
-                if event.sender != self.matrix_client.user_id:
-                    messages.append(event)
+                messages.append(event)
 
         self.logger.log(f"Found {len(messages)} messages (limit: {n})", "debug")
 
@@ -574,6 +580,39 @@ class GPTBot:
 
         self.logger.log("Sent image", "debug")
 
+    async def send_file(
+        self, room: MatrixRoom, file: bytes, filename: str, mime: str, msgtype: str
+    ):
+        """Send a file to a room.
+
+        Args:
+            room (MatrixRoom): The room to send the file to.
+            file (bytes): The file to send.
+            filename (str): The name of the file.
+            mime (str): The MIME type of the file.
+        """
+
+        self.logger.log(
+            f"Sending file of size {len(file)} bytes to room {room.room_id}", "debug"
+        )
+
+        content_uri = await self.upload_file(file, filename, mime)
+
+        self.logger.log("Uploaded file - sending message...", "debug")
+
+        content = {
+            "body": filename,
+            "info": {"mimetype": mime, "size": len(file)},
+            "msgtype": msgtype,
+            "url": content_uri,
+        }
+
+        status = await self.matrix_client.room_send(
+            room.room_id, "m.room.message", content
+        )
+
+        self.logger.log("Sent file", "debug")
+
     async def send_message(
         self, room: MatrixRoom | str, message: str, notice: bool = False
     ):
@@ -861,6 +900,46 @@ class GPTBot:
                 space,
             )
 
+    def room_uses_stt(self, room: MatrixRoom | str) -> bool:
+        """Check if a room uses STT.
+
+        Args:
+            room (MatrixRoom | str): The room to check.
+
+        Returns:
+            bool: Whether the room uses STT.
+        """
+        room_id = room.room_id if isinstance(room, MatrixRoom) else room
+
+        with closing(self.database.cursor()) as cursor:
+            cursor.execute(
+                "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?",
+                (room_id, "stt"),
+            )
+            result = cursor.fetchone()
+
+        return False if not result else bool(int(result[0]))
+
+    def room_uses_tts(self, room: MatrixRoom | str) -> bool:
+        """Check if a room uses TTS.
+
+        Args:
+            room (MatrixRoom | str): The room to check.
+
+        Returns:
+            bool: Whether the room uses TTS.
+        """
+        room_id = room.room_id if isinstance(room, MatrixRoom) else room
+
+        with closing(self.database.cursor()) as cursor:
+            cursor.execute(
+                "SELECT value FROM room_settings WHERE room_id = ? AND setting = ?",
+                (room_id, "tts"),
+            )
+            result = cursor.fetchone()
+
+        return False if not result else bool(int(result[0]))
+
     def respond_to_room_messages(self, room: MatrixRoom | str) -> bool:
         """Check whether the bot should respond to all messages sent in a room.
 
@@ -955,7 +1034,25 @@ class GPTBot:
                     message_body = message.body if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message.body}]
                     chat_messages.append({"role": role, "content": message_body})
 
-            if self.chat_api.supports_chat_images() and isinstance(message, RoomMessageMedia):
+            if isinstance(message, RoomMessageAudio):
+                role = (
+                    "assistant" if message.sender == self.matrix_client.user_id else "user"
+                )
+                if message == event or (not message.event_id == event.event_id):
+                    if self.room_uses_stt(room):
+                        try:
+                            download = await self.download_file(message.url)
+                            message_text = await self.stt_api.speech_to_text(download.body)
+                        except Exception as e:
+                            self.logger.log(f"Error generating text from audio: {e}", "error")
+                            message_text = message.body
+                    else:
+                        message_text = message.body
+
+                    message_body = message_text if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message_text}]
+                    chat_messages.append({"role": role, "content": message_body})
+
+            if self.chat_api.supports_chat_images() and isinstance(message, RoomMessageImage):
                 image_url = message.url
                 download = await self.download_file(image_url)
 
@@ -1000,6 +1097,20 @@ class GPTBot:
             )
 
             self.logger.log(f"Sending response to room {room.room_id}...")
+
+            if self.room_uses_tts(room):
+                self.logger.log("TTS enabled for room", "debug")
+
+                try:
+                    audio = await self.tts_api.text_to_speech(response)
+                    await self.send_file(room, audio, response, "audio/mpeg", "m.audio")
+                    return
+
+                except Exception as e:
+                    self.logger.log(f"Error generating audio: {e}", "error")
+                    await self.send_message(
+                        room, "Something went wrong generating audio file.", True
+                    )
 
             message = await self.send_message(room, response)
 

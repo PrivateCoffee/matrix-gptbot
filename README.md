@@ -1,10 +1,10 @@
 # GPTbot
 
-GPTbot is a simple bot that uses different APIs to generate responses to 
+GPTbot is a simple bot that uses different APIs to generate responses to
 messages in a Matrix room.
 
 It is called GPTbot because it was originally intended to only use GPT-3 to
-generate responses. However, it supports other services/APIs, and I will 
+generate responses. However, it supports other services/APIs, and I will
 probably add more in the future, so the name is a bit misleading.
 
 ## Features
@@ -12,9 +12,12 @@ probably add more in the future, so the name is a bit misleading.
 - AI-generated responses to messages in a Matrix room (chatbot)
   - Currently supports OpenAI (tested with `gpt-3.5-turbo` and `gpt-4`)
 - AI-generated pictures via the `!gptbot imagine` command
-  - Currently supports OpenAI (DALL-E)
+  - Currently supports OpenAI (DALL-E-2/DALL-E-3)
 - Mathematical calculations via the `!gptbot calculate` command
   - Currently supports WolframAlpha
+- Voice input and output
+  - Currently supports OpenAI (TTS and Whisper)
+  - Beta feature, see dedicated section for details
 - Automatic classification of messages (for `imagine`, `calculate`, etc.)
   - Beta feature, see Usage section for details
 - Really useful commands like `!gptbot help` and `!gptbot coin`
@@ -26,9 +29,9 @@ probably add more in the future, so the name is a bit misleading.
 
 ## Installation
 
-To run the bot, you will need Python 3.10 or newer. 
+To run the bot, you will need Python 3.10 or newer.
 
-The bot has been tested with Python 3.11 on Arch, but should work with any 
+The bot has been tested with Python 3.11 on Arch, but should work with any
 current version, and should not require any special dependencies or operating
 system features.
 
@@ -53,7 +56,7 @@ A release to PyPI is planned, but not yet available.
 
 ### Development
 
-Clone the repository and install the requirements to a virtual environment. 
+Clone the repository and install the requirements to a virtual environment.
 
 ```shell
 # Clone the repository
@@ -145,6 +148,14 @@ Also note that this feature conflicts with the `always_reply false` setting -
 or rather, it doesn't make sense then because you already have to explicitly
 specify the command to use.
 
+## Voice input and output
+
+The bot supports voice input and output, but it is disabled by default. To
+enable it, use the `!gptbot roomsettings` command to change the settings for
+the current room. `!gptbot roomsettings stt true` will enable voice input,
+and `!gptbot roomsettings tts true` will enable voice output. Note that this
+may be a little unreliable at the moment, especially voice input.
+
 ## Troubleshooting
 
 **Help, the bot is not responding!**
@@ -181,4 +192,5 @@ please check the logs and open an issue if you can't figure out what's going on.
 
 ## License
 
-This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the terms of the MIT license. See the [LICENSE](LICENSE)
+file for details.

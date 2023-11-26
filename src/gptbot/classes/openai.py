@@ -3,12 +3,15 @@ import requests
 
 import asyncio
 import json
+
 from functools import partial
 from contextlib import closing
+from typing import Dict, List, Tuple, Generator, AsyncGenerator, Optional, Any
+from io import BytesIO
+
+from pydub import AudioSegment
 
 from .logging import Logger
-
-from typing import Dict, List, Tuple, Generator, AsyncGenerator, Optional, Any
 
 ASSISTANT_CODE_INTERPRETER = [
     {
@@ -30,17 +33,23 @@ class OpenAI:
 
     classification_api = chat_api
     image_model: str = "dall-e-2"
+    tts_model: str = "tts-1-hd"
+    tts_voice: str = "alloy"
+    stt_model: str = "whisper-1"
 
     operator: str = "OpenAI ([https://openai.com](https://openai.com))"
 
-    def __init__(self, bot, api_key, chat_model=None, image_model=None, base_url=None, logger=None):
+    def __init__(self, bot, api_key, chat_model=None, image_model=None, tts_model=None, tts_voice=None, stt_model=None, base_url=None, logger=None):
         self.bot = bot
         self.api_key = api_key
         self.chat_model = chat_model or self.chat_model
         self.image_model = image_model or self.image_model
-        self.logger = logger or Logger()
+        self.logger = logger or bot.logger or Logger()
         self.base_url = base_url or openai.base_url
         self.openai_api = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.tts_model = tts_model or self.tts_model
+        self.tts_voice = tts_voice or self.tts_voice
+        self.stt_model = stt_model or self.stt_model
 
     def supports_chat_images(self):
         return "vision" in self.chat_model
@@ -265,6 +274,47 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         self.logger.log(f"Classified message as {result['type']} with {tokens_used} tokens.")
 
         return result, tokens_used
+
+    async def text_to_speech(self, text: str, user: Optional[str] = None) -> Generator[bytes, None, None]:
+        """Generate speech from text.
+
+        Args:
+            text (str): The text to use.
+
+        Yields:
+            bytes: The audio data.
+        """
+        self.logger.log(f"Generating speech from text '{text}'...")
+
+        speech = await self.openai_api.audio.speech.create(
+            model=self.tts_model,
+            input=text,
+            voice=self.tts_voice
+        )
+
+        return speech.content
+
+    async def speech_to_text(self, audio: bytes, user: Optional[str] = None) -> Tuple[str, int]:
+        """Generate text from speech.
+
+        Args:
+            audio (bytes): The audio data.
+
+        Returns:
+            Tuple[str, int]: The text and the number of tokens used.
+        """
+        self.logger.log(f"Generating text from speech...")
+
+        response = await self.openai_api.audio.transcriptions.create(
+            model=self.stt_model,
+            file=BytesIO(audio),
+        )
+
+        text = response.text
+
+        self.logger.log(f"Generated text with {tokens_used} tokens.")
+
+        return text
 
     async def generate_image(self, prompt: str, user: Optional[str] = None) -> Generator[bytes, None, None]:
         """Generate an image from a prompt.

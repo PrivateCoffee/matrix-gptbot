@@ -22,6 +22,7 @@ for command in [
     "dice",
     "parcel",
     "space",
+    "tts",
 ]:
     function = getattr(import_module(
         "." + command, "gptbot.commands"), "command_" + command)
