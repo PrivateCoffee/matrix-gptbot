@@ -61,6 +61,7 @@ from .logging import Logger
 from ..migrations import migrate
 from ..callbacks import RESPONSE_CALLBACKS, EVENT_CALLBACKS
 from ..commands import COMMANDS
+from ..tools import TOOLS
 from .openai import OpenAI
 from .wolframalpha import WolframAlpha
 from .trackingmore import TrackingMore
@@ -92,6 +93,9 @@ class GPTBot:
     logo: Optional[Image.Image] = None
     logo_uri: Optional[str] = None
     allowed_users: List[str] = []
+    config: ConfigParser = ConfigParser()
+
+    USER_AGENT = "matrix-gptbot/dev (+https://kumig.it/kumitterer/matrix-gptbot)"
 
     @classmethod
     def from_config(cls, config: ConfigParser):
@@ -188,6 +192,7 @@ class GPTBot:
         bot.matrix_client.device_id = config["Matrix"].get("DeviceID")
 
         # Return the new GPTBot instance
+        bot.config = config
         return bot
 
     async def _get_user_id(self) -> str:
@@ -341,6 +346,31 @@ class GPTBot:
                 device_id = devices.devices[0].id
 
         return device_id
+
+    async def call_tool(self, tool_call: dict):
+        """Call a tool.
+
+        Args:
+            tool_call (dict): The tool call to make.
+        """
+
+        tool = tool_call.function.name
+        args = json.loads(tool_call.function.arguments)
+
+        self.logger.log(f"Calling tool {tool} with args {args}", "debug")
+
+        try:
+            tool_class = TOOLS[tool]
+            result = await tool_class(**args, bot=self).run()
+            return result
+
+        except KeyError:
+            self.logger.log(f"Tool {tool} not found", "error")
+            return "Error: Tool not found"
+
+        except Exception as e:
+            self.logger.log(f"Error calling tool {tool}: {e}", "error")
+            return f"Error: Something went wrong calling tool {tool}"
 
     async def process_command(self, room: MatrixRoom, event: RoomMessageText):
         """Process a command. Called from the event_callback() method.

@@ -1,5 +1,6 @@
 import openai
 import requests
+import tiktoken
 
 import asyncio
 import json
@@ -12,6 +13,7 @@ from io import BytesIO
 from pydub import AudioSegment
 
 from .logging import Logger
+from ..tools import TOOLS
 
 ASSISTANT_CODE_INTERPRETER = [
     {
@@ -199,35 +201,101 @@ class OpenAI:
 
         return result is not None
 
-    async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None, room: Optional[str] = None) -> Tuple[str, int]:
+    async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None, room: Optional[str] = None, allow_override: bool = True) -> Tuple[str, int]:
         """Generate a response to a chat message.
 
         Args:
             messages (List[Dict[str, str]]): A list of messages to use as context.
             user (Optional[str], optional): The user to use the assistant for. Defaults to None.
             room (Optional[str], optional): The room to use the assistant for. Defaults to None.
+            allow_override (bool, optional): Whether to allow the chat model to be overridden. Defaults to True.
 
         Returns:
             Tuple[str, int]: The response text and the number of tokens used.
         """
-        self.logger.log(f"Generating response to {len(messages)} messages using {self.chat_model}...")
+        self.logger.log(f"Generating response to {len(messages)} messages...")
 
         if await self.room_uses_assistant(room):
             return await self.generate_assistant_response(messages, room, user)
 
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": tool_name,
+                    "description": tool_class.DESCRIPTION,
+                    "parameters": tool_class.PARAMETERS
+                }
+            }
+        for tool_name, tool_class in TOOLS.items()]
+
+        chat_model = self.chat_model
+
+        if allow_override and not "gpt-3.5-turbo" in self.chat_model:
+            if self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False):
+                self.logger.log(f"Overriding chat model to use tools")
+                chat_model = "gpt-3.5-turbo-1106"
+
+        self.logger.log(f"Generating response with model {chat_model}...")
+
+        kwargs = {
+                "model": chat_model,
+                "messages": messages,
+                "user": user,
+        }
+
+        if "gpt-3.5-turbo" in chat_model:
+            kwargs["tools"] = tools
+
+        if "gpt-4" in chat_model:
+            kwargs["max_tokens"] = self.bot.config.getint("OpenAI", "MaxTokens", fallback=4000)
+
         chat_partial = partial(
             self.openai_api.chat.completions.create,
-                model=self.chat_model,
-                messages=messages,
-                user=user,
-                max_tokens=4096
+                **kwargs
         )
         response = await self._request_with_retries(chat_partial)
 
-        result_text = response.choices[0].message.content
+        choice = response.choices[0]
+        result_text = choice.message.content
+
+        additional_tokens = 0
+
+        if (not result_text) and choice.message.tool_calls:
+            tool_responses = []
+            for tool_call in choice.message.tool_calls:
+                tool_response = await self.bot.call_tool(tool_call)
+                tool_responses.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": str(tool_response)
+                })
+
+            messages = messages + [choice.message] + tool_responses
+
+            result_text, additional_tokens = await self.generate_chat_response(messages, user, room)
+
+        elif not self.chat_model == chat_model:
+            new_messages = []
+
+            for message in messages:
+                new_message = message
+
+                if isinstance(message, dict):
+                    if message["role"] == "tool":
+                        new_message["role"] = "system"
+                        del(new_message["tool_call_id"])
+
+                else:
+                    continue
+
+                new_messages.append(new_message)
+
+            result_text, additional_tokens = await self.generate_chat_response(new_messages, user, room, False)
+
         tokens_used = response.usage.total_tokens
         self.logger.log(f"Generated response with {tokens_used} tokens.")
-        return result_text, tokens_used
+        return result_text, tokens_used + additional_tokens
 
     async def classify_message(self, query: str, user: Optional[str] = None) -> Tuple[Dict[str, str], int]:
         system_message = """You are a classifier for different types of messages. You decide whether an incoming message is meant to be a prompt for an AI chat model, or meant for a different API. You respond with a JSON object like this:
