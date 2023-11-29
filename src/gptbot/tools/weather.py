@@ -32,7 +32,6 @@ class Weather(BaseTool):
             raise Exception('Weather API key not found.')
 
         url = f'https://api.openweathermap.org/data/3.0/onecall?lat={latitude}&lon={longitude}&appid={weather_api_key}&units=metric'
-        print(url)
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
