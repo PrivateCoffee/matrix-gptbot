@@ -1120,7 +1120,7 @@ class GPTBot:
 
         try:
             response, tokens_used = await self.chat_api.generate_chat_response(
-                chat_messages, user=room.room_id, room=room.room_id
+                chat_messages, user=event.sender, room=room.room_id
             )
         except Exception as e:
             self.logger.log(f"Error generating response: {e}", "error")

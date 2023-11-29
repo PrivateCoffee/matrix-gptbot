@@ -263,7 +263,7 @@ class OpenAI:
         kwargs = {
                 "model": chat_model,
                 "messages": messages,
-                "user": user,
+                "user": room,
         }
 
         if "gpt-3.5-turbo" in chat_model and use_tools:
