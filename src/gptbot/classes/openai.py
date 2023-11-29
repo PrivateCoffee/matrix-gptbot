@@ -302,7 +302,7 @@ class OpenAI:
                 self.logger.log(f"No more responses received, aborting.")
                 result_text = False
             else:
-                messages = original_messages + [choice.message] + tool_responses
+                messages = original_messages[:-1] + [choice.message] + tool_responses + original_messages[-1:]
 
                 result_text, additional_tokens = await self.generate_chat_response(messages, user, room)
 
