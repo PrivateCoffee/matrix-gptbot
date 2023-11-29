@@ -56,12 +56,13 @@ import json
 import importlib.util
 import sys
 import sqlite3
+import traceback
 
 from .logging import Logger
 from ..migrations import migrate
 from ..callbacks import RESPONSE_CALLBACKS, EVENT_CALLBACKS
 from ..commands import COMMANDS
-from ..tools import TOOLS
+from ..tools import TOOLS, Handover, StopProcessing
 from .openai import OpenAI
 from .wolframalpha import WolframAlpha
 from .trackingmore import TrackingMore
@@ -347,11 +348,13 @@ class GPTBot:
 
         return device_id
 
-    async def call_tool(self, tool_call: dict):
+    async def call_tool(self, tool_call: dict, room: str, user: str, **kwargs):
         """Call a tool.
 
         Args:
             tool_call (dict): The tool call to make.
+            room (str): The room to call the tool in.
+            user (str): The user to call the tool as.
         """
 
         tool = tool_call.function.name
@@ -361,15 +364,19 @@ class GPTBot:
 
         try:
             tool_class = TOOLS[tool]
-            result = await tool_class(**args, bot=self).run()
+            result = await tool_class(**args, room=room, bot=self, user=user).run()
             return result
 
-        except KeyError:
+        except (Handover, StopProcessing):
+            raise
+
+        except KeyError as e:
             self.logger.log(f"Tool {tool} not found", "error")
             return "Error: Tool not found"
 
         except Exception as e:
             self.logger.log(f"Error calling tool {tool}: {e}", "error")
+            traceback.print_exc()
             return f"Error: Something went wrong calling tool {tool}"
 
     async def process_command(self, room: MatrixRoom, event: RoomMessageText):
@@ -568,13 +575,16 @@ class GPTBot:
         """Send an image to a room.
 
         Args:
-            room (MatrixRoom): The room to send the image to.
+            room (MatrixRoom|str): The room to send the image to.
             image (bytes): The image to send.
             message (str, optional): The message to send with the image. Defaults to None.
         """
 
+        if isinstance(room, MatrixRoom):
+            room = room.room_id
+
         self.logger.log(
-            f"Sending image of size {len(image)} bytes to room {room.room_id}", "debug"
+            f"Sending image of size {len(image)} bytes to room {room}", "debug"
         )
 
         bio = BytesIO(image)
@@ -605,7 +615,7 @@ class GPTBot:
         }
 
         status = await self.matrix_client.room_send(
-            room.room_id, "m.room.message", content
+            room, "m.room.message", content
         )
 
         self.logger.log("Sent image", "debug")
@@ -616,14 +626,17 @@ class GPTBot:
         """Send a file to a room.
 
         Args:
-            room (MatrixRoom): The room to send the file to.
+            room (MatrixRoom|str): The room to send the file to.
             file (bytes): The file to send.
             filename (str): The name of the file.
             mime (str): The MIME type of the file.
         """
 
+        if isinstance(room, MatrixRoom):
+            room = room.room_id
+
         self.logger.log(
-            f"Sending file of size {len(file)} bytes to room {room.room_id}", "debug"
+            f"Sending file of size {len(file)} bytes to room {room}", "debug"
         )
 
         content_uri = await self.upload_file(file, filename, mime)
@@ -638,7 +651,7 @@ class GPTBot:
         }
 
         status = await self.matrix_client.room_send(
-            room.room_id, "m.room.message", content
+            room, "m.room.message", content
         )
 
         self.logger.log("Sent file", "debug")
@@ -1108,7 +1121,7 @@ class GPTBot:
 
         try:
             response, tokens_used = await self.chat_api.generate_chat_response(
-                chat_messages, user=room.room_id
+                chat_messages, user=room.room_id, room=room.room_id
             )
         except Exception as e:
             self.logger.log(f"Error generating response: {e}", "error")
@@ -1143,13 +1156,6 @@ class GPTBot:
                     )
 
             message = await self.send_message(room, response)
-
-        else:
-            # Send a notice to the room if there was an error
-            self.logger.log("Didn't get a response from GPT API", "error")
-            await self.send_message(
-                room, "Something went wrong. Please try again.", True
-            )
 
         await self.matrix_client.room_typing(room.room_id, False)
 

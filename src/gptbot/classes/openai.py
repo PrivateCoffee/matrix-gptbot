@@ -13,7 +13,7 @@ from io import BytesIO
 from pydub import AudioSegment
 
 from .logging import Logger
-from ..tools import TOOLS
+from ..tools import TOOLS, Handover, StopProcessing
 
 ASSISTANT_CODE_INTERPRETER = [
     {
@@ -201,7 +201,7 @@ class OpenAI:
 
         return result is not None
 
-    async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None, room: Optional[str] = None, allow_override: bool = True) -> Tuple[str, int]:
+    async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None, room: Optional[str] = None, allow_override: bool = True, use_tools: bool = True) -> Tuple[str, int]:
         """Generate a response to a chat message.
 
         Args:
@@ -209,6 +209,7 @@ class OpenAI:
             user (Optional[str], optional): The user to use the assistant for. Defaults to None.
             room (Optional[str], optional): The room to use the assistant for. Defaults to None.
             allow_override (bool, optional): Whether to allow the chat model to be overridden. Defaults to True.
+            use_tools (bool, optional): Whether to use tools. Defaults to True.
 
         Returns:
             Tuple[str, int]: The response text and the number of tokens used.
@@ -230,11 +231,31 @@ class OpenAI:
         for tool_name, tool_class in TOOLS.items()]
 
         chat_model = self.chat_model
+        original_messages = messages
 
         if allow_override and not "gpt-3.5-turbo" in self.chat_model:
             if self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False):
                 self.logger.log(f"Overriding chat model to use tools")
                 chat_model = "gpt-3.5-turbo-1106"
+
+                out_messages = []
+
+                for message in messages:
+                    if isinstance(message, dict):
+                        if isinstance(message["content"], str):
+                            out_messages.append(message)
+                        else:
+                            message_content = []
+                            for content in message["content"]:
+                                if content["type"] == "text":
+                                    message_content.append(content)
+                            if message_content:
+                                message["content"] = message_content
+                                out_messages.append(message)
+                    else:
+                        out_messages.append(message)
+
+                messages = out_messages
 
         self.logger.log(f"Generating response with model {chat_model}...")
 
@@ -244,7 +265,7 @@ class OpenAI:
                 "user": user,
         }
 
-        if "gpt-3.5-turbo" in chat_model:
+        if "gpt-3.5-turbo" in chat_model and use_tools:
             kwargs["tools"] = tools
 
         if "gpt-4" in chat_model:
@@ -264,21 +285,31 @@ class OpenAI:
         if (not result_text) and choice.message.tool_calls:
             tool_responses = []
             for tool_call in choice.message.tool_calls:
-                tool_response = await self.bot.call_tool(tool_call)
-                tool_responses.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": str(tool_response)
-                })
+                try:
+                    tool_response = await self.bot.call_tool(tool_call, room=room, user=user)
+                    if tool_response != False:
+                        tool_responses.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": str(tool_response)
+                        })
+                except StopProcessing:
+                    return False, 0
+                except Handover:
+                    return await self.generate_chat_response(original_messages, user, room, allow_override=False, use_tools=False)
 
-            messages = messages + [choice.message] + tool_responses
+            if not tool_responses:
+                self.logger.log(f"No more responses received, aborting.")
+                result_text = False
+            else:
+                messages = original_messages + [choice.message] + tool_responses
 
-            result_text, additional_tokens = await self.generate_chat_response(messages, user, room)
+                result_text, additional_tokens = await self.generate_chat_response(messages, user, room)
 
         elif not self.chat_model == chat_model:
             new_messages = []
 
-            for message in messages:
+            for message in original_messages:
                 new_message = message
 
                 if isinstance(message, dict):
@@ -291,9 +322,13 @@ class OpenAI:
 
                 new_messages.append(new_message)
 
-            result_text, additional_tokens = await self.generate_chat_response(new_messages, user, room, False)
+            result_text, additional_tokens = await self.generate_chat_response(new_messages, user, room, allow_override=False)
 
-        tokens_used = response.usage.total_tokens
+        try:
+            tokens_used = response.usage.total_tokens
+        except:
+            tokens_used = 0
+
         self.logger.log(f"Generated response with {tokens_used} tokens.")
         return result_text, tokens_used + additional_tokens
 
@@ -384,11 +419,13 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         return text
 
-    async def generate_image(self, prompt: str, user: Optional[str] = None) -> Generator[bytes, None, None]:
+    async def generate_image(self, prompt: str, user: Optional[str] = None, orientation: str = "square") -> Generator[bytes, None, None]:
         """Generate an image from a prompt.
 
         Args:
             prompt (str): The prompt to use.
+            user (Optional[str], optional): The user to use the assistant for. Defaults to None.
+            orientation (str, optional): The orientation of the image. Defaults to "square".
 
         Yields:
             bytes: The image data.
@@ -396,27 +433,34 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         self.logger.log(f"Generating image from prompt '{prompt}'...")
 
         split_prompt = prompt.split()
+        delete_first = False
 
         size = "1024x1024"
 
         if self.image_model == "dall-e-3":
-            if split_prompt[0] == "--portrait":
+            if orientation == "portrait" or (delete_first := split_prompt[0] == "--portrait"):
                 size = "1024x1792"
-                prompt = " ".join(split_prompt[1:])
-            elif split_prompt[0] == "--landscape":
+            elif orientation == "landscape" or (delete_first := split_prompt[0] == "--landscape"):
                 size = "1792x1024"
-                prompt = " ".join(split_prompt[1:])
+                
+        if delete_first:
+            prompt = " ".join(split_prompt[1:])
 
         self.logger.log(f"Generating image with size {size} using model {self.image_model}...")
 
+        args = {
+            "model": self.image_model,
+            "quality": "standard" if self.image_model != "dall-e-3" else "hd",
+            "prompt": prompt,
+            "n": 1,
+            "size": size,
+        }
+
+        if user:
+            args["user"] = user
+
         image_partial = partial(
-            self.openai_api.images.generate,
-                model=self.image_model,
-                quality="standard" if self.image_model != "dall-e-3" else "hd",
-                prompt=prompt,
-                n=1,
-                size=size,
-                user=user,
+            self.openai_api.images.generate, **args
         )
         response = await self._request_with_retries(image_partial)
 

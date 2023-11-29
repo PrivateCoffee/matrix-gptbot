@@ -1,5 +1,7 @@
 from importlib import import_module
 
+from .base import BaseTool, StopProcessing, Handover
+
 TOOLS = {}
 
 for tool in [
@@ -8,6 +10,8 @@ for tool in [
     "dice",
     "websearch",
     "webrequest",
+    "imagine",
+    "imagedescription",
 ]:
     tool_class = getattr(import_module(
         "." + tool, "gptbot.tools"), tool.capitalize())
