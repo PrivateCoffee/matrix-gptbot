@@ -408,14 +408,18 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         """
         self.logger.log(f"Generating text from speech...")
 
+        audio_file = BytesIO()
+        AudioSegment.from_file(BytesIO(audio)).export(audio_file, format="mp3")
+        audio_file.name = "audio.mp3"
+
         response = await self.openai_api.audio.transcriptions.create(
             model=self.stt_model,
-            file=BytesIO(audio),
+            file=audio_file,
         )
 
         text = response.text
 
-        self.logger.log(f"Generated text with {tokens_used} tokens.")
+        self.logger.log(f"Recognized text: {len(text.split())} words.")
 
         return text
 
