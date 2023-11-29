@@ -21,16 +21,16 @@ from .keys import keys_query_callback
 from .test_response import test_response_callback
 
 RESPONSE_CALLBACKS = {
-    Response: test_response_callback,
+    #Response: test_response_callback,
     SyncResponse: sync_callback,
     JoinResponse: join_callback,
     #KeysQueryResponse: keys_query_callback,
 }
 
 EVENT_CALLBACKS = {
-    Event: test_callback,
+    #Event: test_callback,
     InviteEvent: room_invite_callback,
     RoomMessageText: message_callback,
     RoomMemberEvent: roommember_callback,
-    MegolmEvent: encrypted_message_callback,
+    #MegolmEvent: encrypted_message_callback,
 }
