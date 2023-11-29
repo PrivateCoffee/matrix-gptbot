@@ -376,7 +376,6 @@ class GPTBot:
 
         except Exception as e:
             self.logger.log(f"Error calling tool {tool}: {e}", "error")
-            traceback.print_exc()
             return f"Error: Something went wrong calling tool {tool}"
 
     async def process_command(self, room: MatrixRoom, event: RoomMessageText):
