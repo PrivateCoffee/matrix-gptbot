@@ -294,8 +294,8 @@ class OpenAI:
                             "tool_call_id": tool_call.id,
                             "content": str(tool_response)
                         })
-                except StopProcessing:
-                    return False, 0
+                except StopProcessing as e:
+                    return (e.args[0] if e.args else False), 0
                 except Handover:
                     return await self.generate_chat_response(original_messages, user, room, allow_override=False, use_tools=False)
 

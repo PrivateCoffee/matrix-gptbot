@@ -1,4 +1,4 @@
-from .base import BaseTool
+from .base import BaseTool, StopProcessing
 
 from nio import RoomCreateError, RoomInviteError
 
@@ -54,4 +54,4 @@ class Newroom(BaseTool):
         await self.bot.matrix_client.room_put_state(
             new_room.room_id, "m.room.power_levels", {"users": {self.user: 100, self.bot.matrix_client.user_id: 100}})
 
-        return "Created new Matrix room with ID " + new_room.room_id + " and invited user."
+        raise StopProcessing("Created new Matrix room with ID " + new_room.room_id + " and invited user.")
