@@ -57,6 +57,6 @@ class Wikipedia(BaseTool):
                     elif 'revisions' in page:
                         return f"**{page['title']}**\n{page['revisions'][0]['*']}"
                     else:
-                        raise Exception('No results found.')
+                        raise Exception(f'No results for {query} found in Wikipedia.')
                 else:
                     raise Exception(f'Could not connect to Wikipedia API: {response.status} {response.reason}')
