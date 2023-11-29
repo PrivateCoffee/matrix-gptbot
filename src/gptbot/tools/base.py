@@ -4,9 +4,10 @@ class BaseTool:
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
-        self.bot = kwargs["bot"]
-        self.room = kwargs["room"]
-        self.user = kwargs["user"]
+        self.bot = kwargs.get("bot")
+        self.room = kwargs.get("room")
+        self.user = kwargs.get("user")
+        self.messages = kwargs.get("messages", [])
 
     async def run(self):
         raise NotImplementedError()

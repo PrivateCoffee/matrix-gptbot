@@ -4,6 +4,7 @@ import tiktoken
 
 import asyncio
 import json
+import base64
 
 from functools import partial
 from contextlib import closing
@@ -387,7 +388,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         Yields:
             bytes: The audio data.
         """
-        self.logger.log(f"Generating speech from text '{text}'...")
+        self.logger.log(f"Generating speech from text of length: {len(text.split())} words...")
 
         speech = await self.openai_api.audio.speech.create(
             model=self.tts_model,
@@ -475,3 +476,37 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
             images.append(image)
 
         return images, len(images)
+
+    async def describe_images(self, messages: list, user: Optional[str] = None) -> Tuple[str, int]:
+        """Generate a description for an image.
+
+        Args:
+            image (bytes): The image data.
+
+        Returns:
+            Tuple[str, int]: The description and the number of tokens used.
+        """
+        self.logger.log(f"Generating description for images in conversation...")
+
+        system_message = "You are an image description generator. You generate descriptions for all images in the current conversation, one after another."
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_message
+            }
+        ] + messages[1:]
+
+        if not "vision" in (chat_model := self.chat_model):
+            chat_model = self.chat_model + "gpt-4-vision-preview"
+
+        chat_partial = partial(
+            self.openai_api.chat.completions.create,
+                model=self.chat_model,
+                messages=messages,
+                user=user,
+        )
+
+        response = await self._request_with_retries(chat_partial)
+
+        return response.choices[0].message.content, response.usage.total_tokens
