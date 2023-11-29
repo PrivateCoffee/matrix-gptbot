@@ -13,6 +13,7 @@ for tool in [
     "imagine",
     "imagedescription",
     "wikipedia",
+    "datetime",
 ]:
     tool_class = getattr(import_module(
         "." + tool, "gptbot.tools"), tool.capitalize())
