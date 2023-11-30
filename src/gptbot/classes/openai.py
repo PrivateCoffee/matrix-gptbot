@@ -303,9 +303,15 @@ class OpenAI:
                 self.logger.log(f"No more responses received, aborting.")
                 result_text = False
             else:
-                messages = original_messages[:-1] + [choice.message] + tool_responses + original_messages[-1:]
-
-                result_text, additional_tokens = await self.generate_chat_response(messages, user, room)
+                try:
+                    messages = original_messages[:-1] + [choice.message] + tool_responses + original_messages[-1:]
+                    result_text, additional_tokens = await self.generate_chat_response(messages, user, room)
+                except openai.APIError as e:
+                    if e.code == "max_tokens":
+                        self.logger.log(f"Max tokens exceeded, falling back to no-tools response.")
+                        result_text, additional_tokens = await self.generate_chat_response(original_messages, user, room, allow_override=False, use_tools=False)
+                    else:
+                        raise e
 
         elif not self.chat_model == chat_model:
             new_messages = []
