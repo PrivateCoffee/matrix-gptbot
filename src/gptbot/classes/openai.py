@@ -183,7 +183,7 @@ class OpenAI:
         self.openai_api.beta.threads.messages.create(
             thread_id=self.get_thread_id(room),
             messages=messages,
-            user=user
+            user=str(user)
         )
 
     async def room_uses_assistant(self, room: str) -> bool:
@@ -215,7 +215,7 @@ class OpenAI:
         Returns:
             Tuple[str, int]: The response text and the number of tokens used.
         """
-        self.logger.log(f"Generating response to {len(messages)} messages...")
+        self.logger.log(f"Generating response to {len(messages)} messages for user {user} in room {room}...")
 
         if await self.room_uses_assistant(room):
             return await self.generate_assistant_response(messages, room, user)
@@ -297,7 +297,7 @@ class OpenAI:
                 except StopProcessing as e:
                     return (e.args[0] if e.args else False), 0
                 except Handover:
-                    return await self.generate_chat_response(original_messages, user, room, allow_override=False, use_tools=False)
+                    return await self.generate_chat_response(original_messages, user=user, room=room, allow_override=False, use_tools=False)
 
             if not tool_responses:
                 self.logger.log(f"No more responses received, aborting.")
@@ -305,11 +305,31 @@ class OpenAI:
             else:
                 try:
                     messages = original_messages[:-1] + [choice.message] + tool_responses + original_messages[-1:]
-                    result_text, additional_tokens = await self.generate_chat_response(messages, user, room)
+                    result_text, additional_tokens = await self.generate_chat_response(messages, user=user, room=room)
                 except openai.APIError as e:
                     if e.code == "max_tokens":
                         self.logger.log(f"Max tokens exceeded, falling back to no-tools response.")
-                        result_text, additional_tokens = await self.generate_chat_response(original_messages, user, room, allow_override=False, use_tools=False)
+                        try:
+                            new_messages = []
+
+                            for message in original_messages:
+                                new_message = message
+
+                                if isinstance(message, dict):
+                                    if message["role"] == "tool":
+                                        new_message["role"] = "system"
+                                        del(new_message["tool_call_id"])
+
+                                else:
+                                    continue
+
+                                new_messages.append(new_message)
+
+                            result_text, additional_tokens = await self.generate_chat_response(new_messages, user=user, room=room, allow_override=False, use_tools=False)
+                            
+                        except openai.APIError as e:
+                            if e.code == "max_tokens":
+                                result_text, additional_tokens = await self.generate_chat_response(original_messages, user=user, room=room, allow_override=False, use_tools=False)
                     else:
                         raise e
 
@@ -329,7 +349,7 @@ class OpenAI:
 
                 new_messages.append(new_message)
 
-            result_text, additional_tokens = await self.generate_chat_response(new_messages, user, room, allow_override=False)
+            result_text, additional_tokens = await self.generate_chat_response(new_messages, user=user, room=room, allow_override=False)
 
         try:
             tokens_used = response.usage.total_tokens
@@ -370,7 +390,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
             self.openai_api.chat.completions.create,
                 model=self.chat_model,
                 messages=messages,
-                user=user,
+                user=str(user),
         )
         response = await self._request_with_retries(chat_partial)
 
@@ -510,7 +530,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
             self.openai_api.chat.completions.create,
                 model=self.chat_model,
                 messages=messages,
-                user=user,
+                user=str(user),
         )
 
         response = await self._request_with_retries(chat_partial)
