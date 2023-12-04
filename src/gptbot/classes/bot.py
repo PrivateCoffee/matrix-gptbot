@@ -72,13 +72,6 @@ class GPTBot:
     # Default values
     database: Optional[sqlite3.Connection] = None
     crypto_store_path: Optional[str | Path] = None
-    # Default name of rooms created by the bot
-    display_name = default_room_name = "GPTBot"
-    default_system_message: str = "You are a helpful assistant."
-    # Force default system message to be included even if a custom room message is set
-    force_system_message: bool = False
-    max_tokens: int = 3000  # Maximum number of input tokens
-    max_messages: int = 30  # Maximum number of messages to consider as input
     matrix_client: Optional[AsyncClient] = None
     sync_token: Optional[str] = None
     logger: Optional[Logger] = Logger()
@@ -88,14 +81,114 @@ class GPTBot:
     tts_api: Optional[OpenAI] = None
     stt_api: Optional[OpenAI] = None
     parcel_api: Optional[TrackingMore] = None
-    operator: Optional[str] = None
     room_ignore_list: List[str] = []  # List of rooms to ignore invites from
-    debug: bool = False
     logo: Optional[Image.Image] = None
     logo_uri: Optional[str] = None
-    allowed_users: List[str] = []
     config: ConfigParser = ConfigParser()
 
+    # Properties
+
+    @property
+    def allowed_users() -> List[str]:
+        """List of users allowed to use the bot.
+        
+        Returns:
+            List[str]: List of user IDs. Defaults to [], which means all users are allowed.
+        """
+        try:
+            return json.loads(self.config["GPTBot"]["AllowedUsers"])
+        except:
+            return []
+
+    @property
+    def display_name(self) -> str:
+        """Display name of the bot user.
+        
+        Returns:
+            str: The display name of the bot user. Defaults to "GPTBot".
+        """
+        return self.config["GPTBot"].get("DisplayName", "GPTBot")
+
+    @property
+    def default_room_name(self) -> str:
+        """Default name of rooms created by the bot.
+        
+        Returns:
+            str: The default name of rooms created by the bot. Defaults to the display name of the bot.
+        """
+        return self.config["GPTBot"].get("DefaultRoomName", self.display_name)
+
+    @property
+    def default_system_message(self) -> str:
+        """Default system message to include in rooms created by the bot.
+
+        Returns:
+            str: The default system message to include in rooms created by the bot. Defaults to "You are a helpful assistant.".
+        """
+        return self.config["GPTBot"].get(
+            "SystemMessage",
+            "You are a helpful assistant.",
+        )
+
+    @property
+    def force_system_message(self) -> bool:
+        """Whether to force the default system message to be included even if a custom room message is set.
+
+        Returns:
+            bool: Whether to force the default system message to be included even if a custom room message is set. Defaults to False.
+        """
+        return self.config["GPTBot"].getboolean("ForceSystemMessage", False)
+
+    @property
+    def max_tokens(self) -> int:
+        """Maximum number of input tokens.
+
+        Returns:
+            int: The maximum number of input tokens. Defaults to 3000.
+        """
+        return self.config["OpenAI"].getint("MaxTokens", 3000)
+        # TODO: Move this to OpenAI class
+
+    @property
+    def max_messages(self) -> int:
+        """Maximum number of messages to consider as input.
+
+        Returns:
+            int: The maximum number of messages to consider as input. Defaults to 30.
+        """
+        return self.config["OpenAI"].getint("MaxMessages", 30)
+        # TODO: Move this to OpenAI class
+
+    @property
+    def operator(self) -> Optional[str]:
+        """Operator of the bot.
+
+        Returns:
+            Optional[str]: The matrix user ID of the operator of the bot. Defaults to None.
+        """
+        return self.config["GPTBot"].get("Operator")
+
+    @property
+    def debug(self) -> bool:
+        """Whether to enable debug logging.
+
+        Returns:
+            bool: Whether to enable debug logging. Defaults to False.
+        """
+        return self.config["GPTBot"].getboolean("Debug", False)
+
+    @property
+    def logo_path(self) -> str:
+        """Path to the logo of the bot.
+
+        Returns:
+            str: The path to the logo of the bot. Defaults to "assets/logo.png" in the bot's directory.
+        """
+        return self.config["GPTBot"].get(
+                "Logo", str(Path(__file__).parent.parent / "assets/logo.png")
+            )
+
+    # User agent to use for HTTP requests
     USER_AGENT = "matrix-gptbot/dev (+https://kumig.it/kumitterer/matrix-gptbot)"
 
     @classmethod
@@ -111,6 +204,7 @@ class GPTBot:
 
         # Create a new GPTBot instance
         bot = cls()
+        bot.config = config
 
         # Set the database connection
         bot.database = (
@@ -127,34 +221,13 @@ class GPTBot:
 
         # Override default values
         if "GPTBot" in config:
-            bot.operator = config["GPTBot"].get("Operator", bot.operator)
-            bot.default_room_name = config["GPTBot"].get(
-                "DefaultRoomName", bot.default_room_name
-            )
-            bot.default_system_message = config["GPTBot"].get(
-                "SystemMessage", bot.default_system_message
-            )
-            bot.force_system_message = config["GPTBot"].getboolean(
-                "ForceSystemMessage", bot.force_system_message
-            )
-            bot.debug = config["GPTBot"].getboolean("Debug", bot.debug)
-
             if "LogLevel" in config["GPTBot"]:
                 bot.logger = Logger(config["GPTBot"]["LogLevel"])
 
-            logo_path = config["GPTBot"].get(
-                "Logo", str(Path(__file__).parent.parent / "assets/logo.png")
-            )
+            bot.logger.log(f"Loading logo from {bot.logo_path}", "debug")
 
-            bot.logger.log(f"Loading logo from {logo_path}", "debug")
-
-            if Path(logo_path).exists() and Path(logo_path).is_file():
-                bot.logo = Image.open(logo_path)
-
-            bot.display_name = config["GPTBot"].get("DisplayName", bot.display_name)
-
-            if "AllowedUsers" in config["GPTBot"]:
-                bot.allowed_users = json.loads(config["GPTBot"]["AllowedUsers"])
+            if Path(bot.logo_path).exists() and Path(bot.logo_path).is_file():
+                bot.logo = Image.open(bot.logo_path)
 
         bot.chat_api = bot.image_api = bot.classification_api = bot.tts_api = bot.stt_api = OpenAI(
             bot=bot,
@@ -165,8 +238,6 @@ class GPTBot:
             stt_model=config["OpenAI"].get("STTModel"),
             base_url=config["OpenAI"].get("BaseURL")
         )
-        bot.max_tokens = config["OpenAI"].getint("MaxTokens", bot.max_tokens)
-        bot.max_messages = config["OpenAI"].getint("MaxMessages", bot.max_messages)
 
         if "BaseURL" in config["OpenAI"]:
             bot.chat_api.base_url = config["OpenAI"]["BaseURL"]
@@ -193,7 +264,6 @@ class GPTBot:
         bot.matrix_client.device_id = config["Matrix"].get("DeviceID")
 
         # Return the new GPTBot instance
-        bot.config = config
         return bot
 
     async def _get_user_id(self) -> str:
