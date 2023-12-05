@@ -1,0 +1,15 @@
+[Unit]
+Description=Pantalaimon for GPTbot
+Requires=network.target
+
+[Service]
+Type=simple
+User=gptbot
+Group=gptbot
+WorkingDirectory=/opt/gptbot
+ExecStart=/opt/gptbot/venv/bin/python3 -um pantalaimon.main -c pantalaimon.conf
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
