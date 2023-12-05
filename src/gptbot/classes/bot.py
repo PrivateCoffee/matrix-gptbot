@@ -89,7 +89,7 @@ class GPTBot:
     # Properties
 
     @property
-    def allowed_users() -> List[str]:
+    def allowed_users(self) -> List[str]:
         """List of users allowed to use the bot.
         
         Returns:
