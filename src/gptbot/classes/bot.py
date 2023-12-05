@@ -1146,7 +1146,7 @@ class GPTBot:
                     message_body = message.body if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message.body}]
                     chat_messages.append({"role": role, "content": message_body})
 
-            if isinstance(message, RoomMessageAudio):
+            if isinstance(message, RoomMessageAudio) or (isinstance(message, RoomMessageFile) and message.body.endswith(".mp3")):
                 role = (
                     "assistant" if message.sender == self.matrix_client.user_id else "user"
                 )
