@@ -1,0 +1,21 @@
+image: python:3.10
+
+stages:
+  - test
+  - publish
+
+before_script:
+  - python -V
+  - python -m venv venv
+  - source venv/bin/activate
+  - pip install -U pip
+  - pip install .[all]
+
+publish:
+  stage: publish
+  script:
+    - pip install -U hatchling twine build
+    - python -m build .
+    - python -m twine upload --username __token__ --password ${PYPI_TOKEN} dist/*
+  only:
+    - tags

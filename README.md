@@ -3,29 +3,21 @@
 GPTbot is a simple bot that uses different APIs to generate responses to
 messages in a Matrix room.
 
-It is called GPTbot because it was originally intended to only use GPT-3 to
-generate responses. However, it supports other services/APIs, and I will
-probably add more in the future, so the name is a bit misleading.
-
 ## Features
 
-- AI-generated responses to messages in a Matrix room (chatbot)
-  - Currently supports OpenAI (tested with `gpt-3.5-turbo` and `gpt-4`)
-- AI-generated pictures via the `!gptbot imagine` command
-  - Currently supports OpenAI (DALL-E-2/DALL-E-3)
+- AI-generated responses to text, image and voice messages in a Matrix room 
+(chatbot)
+  - Currently supports OpenAI (`gpt-3.5-turbo` and `gpt-4`, including vision 
+  preview, `whisper` and `tts`)
+  - Able to generate pictures using OpenAI `dall-e-2`/`dall-e-3` models
+  - Able to browse the web to find information
+  - Able to use OpenWeatherMap to get weather information (requires separate 
+  API key)
+  - Even able to roll dice!
 - Mathematical calculations via the `!gptbot calculate` command
-  - Currently supports WolframAlpha
-- Voice input and output
-  - Currently supports OpenAI (TTS and Whisper)
-  - Beta feature, see dedicated section for details
-- Automatic classification of messages (for `imagine`, `calculate`, etc.)
-  - Beta feature, see Usage section for details
+  - Currently supports WolframAlpha (requires separate API key)
 - Really useful commands like `!gptbot help` and `!gptbot coin`
 - sqlite3 database to store room settings
-
-## Planned features
-
-- End-to-end encryption support (partly implemented, but not yet working)
 
 ## Installation
 
@@ -37,8 +29,7 @@ system features.
 
 ### Production
 
-The easiest way to install the bot is to use pip to install it directly from
-[its Git repository](https://kumig.it/kumitterer/matrix-gptbot/):
+The easiest way to install the bot is to use pip to install it from pypi.
 
 ```shell
 # If desired, activate a venv first
@@ -48,11 +39,35 @@ python -m venv venv
 
 # Install the bot
 
-pip install git+https://kumig.it/kumitterer/matrix-gptbot.git
+pip install matrix-gptbot[all]
 ```
 
-This will install the bot from the main branch and all required dependencies.
-A release to PyPI is planned, but not yet available.
+This will install the latest release of the bot and all required dependencies
+for all available features.
+
+You can also use `pip install git+https://kumig.it/kumitterer/matrix-gptbot.git`
+to install the latest version from the Git repository.
+
+#### End-to-end encryption
+
+The bot itself does not implement end-to-end encryption. However, it can be
+used in conjunction with [pantalaimon](https://github.com/matrix-org/pantalaimon),
+which is actually installed as a dependency of the bot.
+
+To use pantalaimon, create a `pantalaimon.conf` following the example in
+`pantalaimon.example.conf`, making sure to change the homeserver URL to match
+your homeserver. Then, start pantalaimon with `pantalaimon -c pantalaimon.conf`.
+
+You first have to log in to your homeserver using `python pantalaimon_first_login.py`,
+and can then use the returned access token in your bot's `config.ini` file.
+
+Make sure to also point the bot to your pantalaimon instance by setting 
+`homeserver` to your pantalaimon instance instead of directly to your 
+homeserver in your `config.ini`.
+
+Note: If you don't use pantalaimon, the bot will still work, but it will not 
+be able to decrypt or encrypt messages. This means that you cannot use it in
+rooms with end-to-end encryption enabled.
 
 ### Development
 
@@ -98,6 +113,9 @@ adjust the paths in the file to match your setup, then copy it to
 `systemctl start gptbot` and enable it to start automatically on boot with
 `systemctl enable gptbot`.
 
+Analogously, you can use the provided `gptbot-pantalaimon.service` file to run
+pantalaimon as a systemd service.
+
 ## Usage
 
 Once it is running, just invite the bot to a room and it will start responding
@@ -118,43 +136,42 @@ With this setting, the bot will only be triggered if a message begins with
 bot to generate a response to the message `Hello, how are you?`. The bot will
 still get previous messages in the room as context for generating the response.
 
+### Tools
+
+The bot has a selection of tools at its disposal that it will automatically use
+to generate responses. For example, if you send a message like "Draw me a
+picture of a cat", the bot will automatically use DALL-E to generate an image
+of a cat.
+
+Note that this only works if the bot is configured to use a model that supports
+tools. This currently is only the case for OpenAI's `gpt-3.5-turbo` model. If
+you wish to use `gpt-4` instead, you can set the `ForceTools` option in the 
+`[OpenAI]` section of the config file to `1`. This will cause the bot to use
+`gpt-3.5-turbo` for tool generation and `gpt-4` for generating the final text
+response.
+
+Similarly, it will attempt to use the `gpt-4-vision-preview` model to "read" 
+the contents of images if a non-vision model is used.
+
 ### Commands
 
-There are a few commands that you can use to interact with the bot. For example,
-if you want to generate an image from a text prompt, you can use the
-`!gptbot imagine` command. For example, `!gptbot imagine a cat` will cause the
-bot to generate an image of a cat.
+There are a few commands that you can use to explicitly call a certain feature
+of the bot. For example, if you want to generate an image from a text prompt, 
+you can use the `!gptbot imagine` command. For example, `!gptbot imagine a cat`
+will cause the bot to generate an image of a cat.
 
 To learn more about the available commands, `!gptbot help` will print a list of
 available commands.
 
-### Automatic classification
-
-As a beta feature, the bot can automatically classify messages and use the
-appropriate API to generate a response. For example, if you send a message
-like "Draw me a picture of a cat", the bot will automatically use the
-`imagine` command to generate an image of a cat.
-
-This feature is disabled by default. To enable it, use the `!gptbot roomsettings`
-command to change the settings for the current room. `!gptbot roomsettings classification true`
-will enable automatic classification, and `!gptbot roomsettings classification false`
-will disable it again.
-
-Note that this feature is still in beta and may not work as expected. You can
-always use the commands manually if the automatic classification doesn't work
-for you (including `!gptbot chat` for a regular chat message).
-
-Also note that this feature conflicts with the `always_reply false` setting -
-or rather, it doesn't make sense then because you already have to explicitly
-specify the command to use.
-
-## Voice input and output
+### Voice input and output
 
 The bot supports voice input and output, but it is disabled by default. To
 enable it, use the `!gptbot roomsettings` command to change the settings for
-the current room. `!gptbot roomsettings stt true` will enable voice input,
-and `!gptbot roomsettings tts true` will enable voice output. Note that this
-may be a little unreliable at the moment, especially voice input.
+the current room. `!gptbot roomsettings stt true` will enable voice input using
+OpenAI's `whisper` model, and `!gptbot roomsettings tts true` will enable voice
+output using the `tts` model.
+
+Note that this currently only works for audio messages and .mp3 file uploads.
 
 ## Troubleshooting
 

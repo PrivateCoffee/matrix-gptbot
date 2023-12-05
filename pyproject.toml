@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.2.2"
+version = "0.3.0"
 
 authors = [
   { name="Kumi Mitterer", email="gptbot@kumi.email" },
@@ -46,16 +46,12 @@ wolframalpha = [
     "wolframalpha",
 ]
 
-trackingmore = [
-    "trackingmore @ git+https://kumig.it/kumitterer/trackingmore-api-tool.git",
-]
-
 e2ee = [
     "pantalaimon",
 ]
 
 all = [
-  "matrix-gptbot[openai,wolframalpha,trackingmore,e2ee]",
+  "matrix-gptbot[openai,wolframalpha,e2ee]",
   "geopy",
   "beautifulsoup4",
 ]
@@ -63,6 +59,9 @@ all = [
 dev = [
   "matrix-gptbot[all]",
   "black",
+  "hatchling",
+  "twine",
+  "build",
 ]
 
 [project.urls]
