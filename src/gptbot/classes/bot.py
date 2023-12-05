@@ -15,7 +15,6 @@ from nio import (
     MatrixRoom,
     Api,
     RoomMessagesError,
-    MegolmEvent,
     GroupEncryptionError,
     EncryptionError,
     RoomMessageText,
@@ -33,12 +32,9 @@ from nio import (
     RoomMessageAudio,
     DownloadError,
     DownloadResponse,
-    RoomKeyRequest,
-    RoomKeyRequestError,
     ToDeviceEvent,
     ToDeviceError,
 )
-from nio.crypto import Olm
 from nio.store import SqliteStore
 
 
@@ -71,7 +67,7 @@ from .trackingmore import TrackingMore
 class GPTBot:
     # Default values
     database: Optional[sqlite3.Connection] = None
-    crypto_store_path: Optional[str | Path] = None
+    database_path: Optional[str | Path] = None
     matrix_client: Optional[AsyncClient] = None
     sync_token: Optional[str] = None
     logger: Optional[Logger] = Logger()
@@ -207,15 +203,14 @@ class GPTBot:
         bot.config = config
 
         # Set the database connection
-        bot.database = (
-            sqlite3.connect(config["Database"]["Path"])
+        bot.database_path = (
+            config["Database"]["Path"]
             if "Database" in config and "Path" in config["Database"]
             else None
         )
-
-        bot.crypto_store_path = (
-            config["Database"]["CryptoStore"]
-            if "Database" in config and "CryptoStore" in config["Database"]
+        bot.database = (
+            sqlite3.connect(bot.database_path)
+            if bot.database_path
             else None
         )
 
@@ -315,26 +310,6 @@ class GPTBot:
         for event in response.chunk:
             if len(messages) >= n:
                 break
-
-            if isinstance(event, ToDeviceEvent):
-                try:
-                    event = await self.matrix_client.decrypt_to_device_event(event)
-                except ToDeviceError:
-                    self.logger.log(
-                        f"Could not decrypt message {event.event_id} in room {room_id}",
-                        "error",
-                    )
-                    continue
-
-            if isinstance(event, MegolmEvent):
-                try:
-                    event = await self.matrix_client.decrypt_event(event)
-                except (GroupEncryptionError, EncryptionError):
-                    self.logger.log(
-                        f"Could not decrypt message {event.event_id} in room {room_id}",
-                        "error",
-                    )
-                    continue
 
             if isinstance(event, RoomMessageText):
                 if event.body.startswith("!gptbot ignoreolder"):
@@ -753,36 +728,6 @@ class GPTBot:
 
         content = None
 
-        if self.matrix_client.olm and room.encrypted:
-            try:
-                if not room.members_synced:
-                    responses = []
-                    responses.append(
-                        await self.matrix_client.joined_members(room.room_id)
-                    )
-
-                if self.matrix_client.olm.should_share_group_session(room.room_id):
-                    try:
-                        event = self.matrix_client.sharing_session[room.room_id]
-                        await event.wait()
-                    except KeyError:
-                        await self.matrix_client.share_group_session(
-                            room.room_id,
-                            ignore_unverified_devices=True,
-                        )
-
-                if msgtype != "m.reaction":
-                    response = self.matrix_client.encrypt(
-                        room.room_id, "m.room.message", msgcontent
-                    )
-                    msgtype, content = response
-
-            except Exception as e:
-                self.logger.log(
-                    f"Error encrypting message: {e} - sending unencrypted", "warning"
-                )
-                raise
-
         if not content:
             msgtype = "m.room.message"
             content = msgcontent
@@ -843,16 +788,8 @@ class GPTBot:
         if not self.matrix_client.device_id:
             self.matrix_client.device_id = await self._get_device_id()
 
-        # Set up database
-
-        IN_MEMORY = False
         if not self.database:
-            self.logger.log(
-                "No database connection set up, using in-memory database. Data will be lost on bot shutdown.",
-                "warning",
-            )
-            IN_MEMORY = True
-            self.database = sqlite3.connect(":memory:")
+            self.database = sqlite3.connect(Path(__file__).parent.parent / "database.db")
 
         self.logger.log("Running migrations...")
 
@@ -872,34 +809,13 @@ class GPTBot:
         else:
             self.logger.log(f"Already at latest version {after}.")
 
-        if IN_MEMORY:
-            client_config = AsyncClientConfig(
-                store_sync_tokens=True, encryption_enabled=False
-            )
-        else:
-            matrix_store = SqliteStore
-            client_config = AsyncClientConfig(
-                store_sync_tokens=True, encryption_enabled=True, store=matrix_store
-            )
-            self.matrix_client.config = client_config
-            self.matrix_client.store = matrix_store(
-                self.matrix_client.user_id,
-                self.matrix_client.device_id,
-                '.', #store path
-                database_name=self.crypto_store_path or "",
-            )
+        matrix_store = SqliteStore
+        client_config = AsyncClientConfig(
+            store_sync_tokens=True, encryption_enabled=False, store=matrix_store
+        )
+        self.matrix_client.config = client_config
 
-            self.matrix_client.olm = Olm(
-                self.matrix_client.user_id,
-                self.matrix_client.device_id,
-                self.matrix_client.store,
-            )
-
-            self.matrix_client.encrypted_rooms = (
-                self.matrix_client.store.load_encrypted_rooms()
-            )
-
-        # Run initial sync (now includes joining rooms)
+        # Run initial sync (includes joining rooms)
         sync = await self.matrix_client.sync(timeout=30000, full_state=True)
         if isinstance(sync, SyncResponse):
             await self.response_callback(sync)
@@ -943,14 +859,6 @@ class GPTBot:
         finally:
             self.logger.log("Syncing one last time...", "warning")
             await self.matrix_client.sync(timeout=30000, full_state=True)
-
-    async def request_keys(session_id, room_id):
-        request = RoomKeyRequest(session_id, room_id)
-        response = await client.send(request)
-        if isinstance(response, RoomKeyRequestError):
-            print(f"Failed to request keys for session {session_id}: {response.message}")
-        else:
-            print(f"Requested keys for session {session_id}")
 
     async def create_space(self, name, visibility=RoomVisibility.private) -> str:
         """Create a space.

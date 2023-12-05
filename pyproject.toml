@@ -50,8 +50,12 @@ trackingmore = [
     "trackingmore @ git+https://kumig.it/kumitterer/trackingmore-api-tool.git",
 ]
 
+e2ee = [
+    "pantalaimon",
+]
+
 all = [
-  "matrix-gptbot[openai,wolframalpha,trackingmore]",
+  "matrix-gptbot[openai,wolframalpha,trackingmore,e2ee]",
   "geopy",
   "beautifulsoup4",
 ]

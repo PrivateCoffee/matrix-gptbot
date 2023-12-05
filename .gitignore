@@ -7,3 +7,4 @@ venv/
 __pycache__/
 *.bak
 dist/
+pantalaimon.conf
