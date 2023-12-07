@@ -5,10 +5,17 @@ from configparser import ConfigParser
 
 import signal
 import asyncio
-
+import pkg_resources
 
 def sigterm_handler(_signo, _stack_frame):
     exit()
+
+def get_version():
+    try:
+        package_version = pkg_resources.get_distribution("matrix_gptbot").version
+    except pkg_resources.DistributionNotFound:
+        return None
+    return package_version
 
 
 if __name__ == "__main__":
@@ -25,7 +32,7 @@ if __name__ == "__main__":
         "-v",
         help="Print version and exit",
         action="version",
-        version="GPTBot v0.1.1",
+        version=f"GPTBot {get_version() or '- version unknown'}",
     )
     args = parser.parse_args()
 
