@@ -39,7 +39,7 @@ class Newroom(BaseTool):
 
         with closing(self.bot.database.cursor()) as cursor:
             cursor.execute(
-                "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (event.sender,))
+                "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (self.user,))
             space = cursor.fetchone()
 
         if space:
