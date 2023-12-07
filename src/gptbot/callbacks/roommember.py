@@ -1,9 +1,8 @@
 from nio import RoomMemberEvent, MatrixRoom, KeysUploadError
 
 async def roommember_callback(room: MatrixRoom, event: RoomMemberEvent, bot):
-    try:
-        await bot.matrix_client.keys_upload()
-    except KeysUploadError as e:
+    upload = await bot.matrix_client.keys_upload()
+    if isinstance(upload, KeysUploadError):
         bot.logger.log(f"Failed to upload keys: {e.message}")
 
     if event.membership == "leave":
