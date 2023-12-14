@@ -1054,7 +1054,7 @@ class GPTBot:
                     message_body = message.body if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message.body}]
                     chat_messages.append({"role": role, "content": message_body})
 
-            if isinstance(message, RoomMessageAudio) or (isinstance(message, RoomMessageFile) and message.body.endswith(".mp3")):
+            elif isinstance(message, RoomMessageAudio) or (isinstance(message, RoomMessageFile) and message.body.endswith(".mp3")):
                 role = (
                     "assistant" if message.sender == self.matrix_client.user_id else "user"
                 )
@@ -1072,24 +1072,54 @@ class GPTBot:
                     message_body = message_text if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message_text}]
                     chat_messages.append({"role": role, "content": message_body})
 
-            if self.chat_api.supports_chat_images() and isinstance(message, RoomMessageImage):
-                image_url = message.url
-                download = await self.download_file(image_url)
+            elif isinstance(message, RoomMessageFile):
+                try:
+                    download = await self.download_file(message.url)
+                    if download:
+                        try:
+                            text = download.body.decode("utf-8")
+                        except UnicodeDecodeError:
+                            text = None
 
-                if download:
-                    encoded_url = f"data:{download.content_type};base64,{base64.b64encode(download.body).decode('utf-8')}"
-                    parent = chat_messages[-1] if chat_messages and chat_messages[-1]["role"] == ("assistant" if message.sender == self.matrix_client.user_id else "user") else None
+                        if text:
+                            role = (
+                                "assistant"
+                                if message.sender == self.matrix_client.user_id
+                                else "user"
+                            )
+                            if message == event or (not message.event_id == event.event_id):
+                                message_body = text if not self.chat_api.supports_chat_images() else [{"type": "text", "text": text}]
+                                chat_messages.append({"role": role, "content": message_body})
 
-                    if not parent:
-                        chat_messages.append({"role": ("assistant" if message.sender == self.matrix_client.user_id else "user"), "content": []})
-                        parent = chat_messages[-1]
+                except Exception as e:
+                    self.logger.log(f"Error generating text from file: {e}", "error")
+                    message_body = message.body if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message.body}]
+                    chat_messages.append({"role": "system", "content": message_body})
 
-                    parent["content"].append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": encoded_url
-                        }
-                    })
+            elif self.chat_api.supports_chat_images() and isinstance(message, RoomMessageImage):
+                try:
+                    image_url = message.url
+                    download = await self.download_file(image_url)
+
+                    if download:
+                        encoded_url = f"data:{download.content_type};base64,{base64.b64encode(download.body).decode('utf-8')}"
+                        parent = chat_messages[-1] if chat_messages and chat_messages[-1]["role"] == ("assistant" if message.sender == self.matrix_client.user_id else "user") else None
+
+                        if not parent:
+                            chat_messages.append({"role": ("assistant" if message.sender == self.matrix_client.user_id else "user"), "content": []})
+                            parent = chat_messages[-1]
+
+                        parent["content"].append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": encoded_url
+                            }
+                        })
+
+                except Exception as e:
+                    self.logger.log(f"Error generating image from file: {e}", "error")
+                    message_body = message.body if not self.chat_api.supports_chat_images() else [{"type": "text", "text": message.body}]
+                    chat_messages.append({"role": "system", "content": message_body})
 
         # Truncate messages to fit within the token limit
         truncated_messages = self._truncate(
@@ -1136,7 +1166,7 @@ class GPTBot:
 
         await self.matrix_client.room_typing(room.room_id, False)
 
-    def download_file(self, mxc) -> Optional[bytes]:
+    async def download_file(self, mxc) -> Optional[bytes]:
         """Download a file from the homeserver.
 
         Args:
@@ -1146,7 +1176,7 @@ class GPTBot:
             Optional[bytes]: The downloaded file, or None if there was an error.
         """
 
-        download = self.matrix_client.download(mxc)
+        download = await self.matrix_client.download(mxc)
 
         if isinstance(download, DownloadError):
             self.logger.log(f"Error downloading file: {download.message}", "error")

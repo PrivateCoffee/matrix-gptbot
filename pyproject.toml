@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.2-dev0"
+version = "0.3.2"
 
 authors = [
   { name="Kumi Mitterer", email="gptbot@kumi.email" },
@@ -47,7 +47,7 @@ wolframalpha = [
 ]
 
 e2ee = [
-    "pantalaimon",
+    "pantalaimon>=0.10.5",
 ]
 
 all = [
