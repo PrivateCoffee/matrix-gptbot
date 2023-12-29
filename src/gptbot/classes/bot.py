@@ -816,6 +816,9 @@ class GPTBot:
         self.matrix_client.config = client_config
 
         # Run initial sync (includes joining rooms)
+
+        self.logger.log("Running initial sync...", "debug")
+
         sync = await self.matrix_client.sync(timeout=30000, full_state=True)
         if isinstance(sync, SyncResponse):
             await self.response_callback(sync)
@@ -824,6 +827,8 @@ class GPTBot:
             exit(1)
 
         # Set up callbacks
+
+        self.logger.log("Setting up callbacks...", "debug")
 
         self.matrix_client.add_event_callback(self.event_callback, Event)
         self.matrix_client.add_response_callback(self.response_callback, Response)
