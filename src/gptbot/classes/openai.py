@@ -5,6 +5,7 @@ import tiktoken
 import asyncio
 import json
 import base64
+import inspect
 
 from functools import partial
 from contextlib import closing
@@ -139,6 +140,24 @@ class OpenAI:
         self.logger.log(
             f"Generating response to {len(messages)} messages for user {user} in room {room}..."
         )
+
+        # Check current recursion depth to prevent infinite loops
+
+        if use_tools:
+            frames = inspect.stack()
+            current_function = inspect.getframeinfo(frames[0][0]).function
+            count = sum(1 for frame in frames if inspect.getframeinfo(frame[0]).function == current_function)
+            self.logger.log(f"{current_function} appears {count} times in the call stack")
+            
+            if count > 5:
+                self.logger.log(f"Recursion depth exceeded, aborting.")
+                return self.generate_chat_response(
+                    messages,
+                    user=user,
+                    room=room,
+                    allow_override=False, # TODO: Could this be a problem?
+                    use_tools=False,
+                )
 
         tools = [
             {
