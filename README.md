@@ -50,6 +50,9 @@ to install the latest version from the Git repository.
 
 #### End-to-end encryption
 
+WARNING: Using end-to-end encryption is currently not recommended, as it is
+seems to break file up- and downloads.
+
 The bot itself does not implement end-to-end encryption. However, it can be
 used in conjunction with [pantalaimon](https://github.com/matrix-org/pantalaimon),
 which is actually installed as a dependency of the bot.
