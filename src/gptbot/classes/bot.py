@@ -1136,6 +1136,7 @@ class GPTBot:
                 chat_messages, user=event.sender, room=room.room_id
             )
         except Exception as e:
+            print(traceback.format_exc())
             self.logger.log(f"Error generating response: {e}", "error")
 
             await self.send_message(

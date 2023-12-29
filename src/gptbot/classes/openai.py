@@ -20,8 +20,12 @@ ASSISTANT_CODE_INTERPRETER = [
     {
         "type": "code_interpreter",
     },
-
 ]
+
+class AttributeDictionary(dict):
+    def __init__(self, *args, **kwargs):
+        super(AttributeDictionary, self).__init__(*args, **kwargs)
+        self.__dict__ = self
 
 class OpenAI:
     api_key: str
@@ -42,14 +46,27 @@ class OpenAI:
 
     operator: str = "OpenAI ([https://openai.com](https://openai.com))"
 
-    def __init__(self, bot, api_key, chat_model=None, image_model=None, tts_model=None, tts_voice=None, stt_model=None, base_url=None, logger=None):
+    def __init__(
+        self,
+        bot,
+        api_key,
+        chat_model=None,
+        image_model=None,
+        tts_model=None,
+        tts_voice=None,
+        stt_model=None,
+        base_url=None,
+        logger=None,
+    ):
         self.bot = bot
         self.api_key = api_key
         self.chat_model = chat_model or self.chat_model
         self.image_model = image_model or self.image_model
         self.logger = logger or bot.logger or Logger()
         self.base_url = base_url or openai.base_url
-        self.openai_api = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.openai_api = openai.AsyncOpenAI(
+            api_key=self.api_key, base_url=self.base_url
+        )
         self.tts_model = tts_model or self.tts_model
         self.tts_voice = tts_voice or self.tts_voice
         self.stt_model = stt_model or self.stt_model
@@ -57,7 +74,23 @@ class OpenAI:
     def supports_chat_images(self):
         return "vision" in self.chat_model
 
-    async def _request_with_retries(self, request: partial, attempts: int = 5, retry_interval: int = 2) -> AsyncGenerator[Any | list | Dict, None]:
+    def json_decode(self, data):
+        if data.startswith("```json\n"):
+            data = data[8:]
+        elif data.startswith("```\n"):
+            data = data[4:]
+
+        if data.endswith("```"):
+            data = data[:-3]
+
+        try:
+            return json.loads(data)
+        except:
+            return False
+
+    async def _request_with_retries(
+        self, request: partial, attempts: int = 5, retry_interval: int = 2
+    ) -> AsyncGenerator[Any | list | Dict, None]:
         """Retry a request a set number of times if it fails.
 
         Args:
@@ -83,126 +116,14 @@ class OpenAI:
         # if all attempts failed, raise an exception
         raise Exception("Request failed after all attempts.")
 
-    async def create_assistant(self, system_message: str, tools: List[Dict[str, str]] = ASSISTANT_CODE_INTERPRETER) -> str:
-        """Create a new assistant.
-
-        Args:
-            system_message (str): The system message to use.
-            tools (List[Dict[str, str]], optional): The tools to use. Defaults to ASSISTANT_CODE_INTERPRETER.
-
-        Returns:
-            str: The assistant ID.
-        """
-        self.logger.log(f"Creating assistant with {len(tools)} tools...")
-        assistant_partial = partial(
-            self.openai_api.beta.assistants.create,
-                model=self.chat_model,
-                instructions=system_message,
-                tools=tools
-        )
-        response = await self._request_with_retries(assistant_partial)
-        assistant_id = response.id
-        self.logger.log(f"Created assistant with ID {assistant_id}.")
-        return assistant_id
-
-    async def create_thread(self):
-        # TODO: Implement
-        pass
-
-    async def setup_assistant(self, room: str, system_message: str, tools: List[Dict[str, str]] = ASSISTANT_CODE_INTERPRETER) -> Tuple[str, str]:
-        """Create a new assistant and set it up for a room.
-
-        Args:
-            room (str): The room to set up the assistant for.
-            system_message (str): The system message to use.
-            tools (List[Dict[str, str]], optional): The tools to use. Defaults to ASSISTANT_CODE_INTERPRETER.
-
-        Returns:
-            Tuple[str, str]: The assistant ID and the thread ID.
-        """
-        assistant_id = await self.create_assistant(system_message, tools)
-        thread_id = await self.create_thread() # TODO: Adapt to actual implementation
-
-        self.logger.log(f"Setting up assistant {assistant_id} with thread {thread_id} for room {room}...")
-
-        with closing(self.bot.database.cursor()) as cursor:
-            cursor.execute("INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)", (room, "openai_assistant", assistant_id))
-            cursor.execute("INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)", (room, "openai_thread", thread_id))
-            self.bot.database.commit()
-
-        return assistant_id, thread_id
-
-    async def get_assistant_id(self, room: str) -> str:
-        """Get the assistant ID for a room.
-
-        Args:
-            room (str): The room to get the assistant ID for.
-
-        Returns:
-            str: The assistant ID.
-        """
-        with closing(self.bot.database.cursor()) as cursor:
-            cursor.execute("SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "openai_assistant"))
-            result = cursor.fetchone()
-
-        if result is None:
-            raise Exception("No assistant ID found for room.")
-
-        return result[0]
-
-    async def get_thread_id(self, room: str) -> str:
-        """Get the thread ID for a room.
-
-        Args:
-            room (str): The room to get the thread ID for.
-
-        Returns:
-            str: The thread ID.
-        """
-        with closing(self.bot.database.cursor()) as cursor:
-            cursor.execute("SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "openai_thread"))
-            result = cursor.fetchone()
-
-        if result is None:
-            raise Exception("No thread ID found for room.")
-
-        return result[0]
-
-    async def generate_assistant_response(self, messages: List[Dict[str, str]], room: str, user: Optional[str] = None) -> Tuple[str, int]:
-        """Generate a response to a chat message using an assistant.
-
-        Args:
-            messages (List[Dict[str, str]]): A list of messages to use as context.
-            room (str): The room to use the assistant for.
-            user (Optional[str], optional): The user to use the assistant for. Defaults to None.
-
-        Returns:
-            Tuple[str, int]: The response text and the number of tokens used.
-        """
-        
-        self.openai_api.beta.threads.messages.create(
-            thread_id=self.get_thread_id(room),
-            messages=messages,
-            user=str(user)
-        )
-
-    async def room_uses_assistant(self, room: str) -> bool:
-        """Returns whether a room uses an assistant.
-
-        Args:
-            room (str): The room to check.
-
-        Returns:
-            bool: Whether the room uses an assistant.
-        """
-
-        with closing(self.bot.database.cursor()) as cursor:
-            cursor.execute("SELECT value FROM room_settings WHERE room_id = ? AND setting = ?", (room, "openai_assistant"))
-            result = cursor.fetchone()
-
-        return result is not None
-
-    async def generate_chat_response(self, messages: List[Dict[str, str]], user: Optional[str] = None, room: Optional[str] = None, allow_override: bool = True, use_tools: bool = True) -> Tuple[str, int]:
+    async def generate_chat_response(
+        self,
+        messages: List[Dict[str, str]],
+        user: Optional[str] = None,
+        room: Optional[str] = None,
+        allow_override: bool = True,
+        use_tools: bool = True,
+    ) -> Tuple[str, int]:
         """Generate a response to a chat message.
 
         Args:
@@ -215,10 +136,9 @@ class OpenAI:
         Returns:
             Tuple[str, int]: The response text and the number of tokens used.
         """
-        self.logger.log(f"Generating response to {len(messages)} messages for user {user} in room {room}...")
-
-        if await self.room_uses_assistant(room):
-            return await self.generate_assistant_response(messages, room, user)
+        self.logger.log(
+            f"Generating response to {len(messages)} messages for user {user} in room {room}..."
+        )
 
         tools = [
             {
@@ -226,10 +146,11 @@ class OpenAI:
                 "function": {
                     "name": tool_name,
                     "description": tool_class.DESCRIPTION,
-                    "parameters": tool_class.PARAMETERS
-                }
+                    "parameters": tool_class.PARAMETERS,
+                },
             }
-        for tool_name, tool_class in TOOLS.items()]
+            for tool_name, tool_class in TOOLS.items()
+        ]
 
         chat_model = self.chat_model
         original_messages = messages
@@ -260,26 +181,67 @@ class OpenAI:
 
         self.logger.log(f"Generating response with model {chat_model}...")
 
+        if (
+            use_tools
+            and self.bot.config.getboolean("OpenAI", "EmulateTools", fallback=False)
+            and not self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False)
+            and not "gpt-3.5-turbo" in self.chat_model
+        ):
+            self.bot.logger.log("Using tool emulation mode.", "debug")
+
+            messages = (
+                [
+                    {
+                        "role": "system",
+                        "content": """You are a tool dispatcher for an AI chat model. You decide which tools to use for the current conversation. You DO NOT RESPOND DIRECTLY TO THE USER. Instead, respond with a JSON object like this:
+
+                    { "type": "tool", "tool": tool_name, "parameters": { "name": "value"  } }
+
+                    - tool_name is the name of the tool you want to use.
+                    - parameters is an object containing the parameters for the tool. The parameters are defined in the tool's description.
+
+                    The following tools are available:
+
+                    """
+                        + "\n".join(
+                            [
+                                f"- {tool_name}: {tool_class.DESCRIPTION} ({tool_class.PARAMETERS})"
+                                for tool_name, tool_class in TOOLS.items()
+                            ]
+                        ) + """
+
+                        If no tool is required, or all information is already available in the message thread, respond with an empty JSON object: {}
+
+                        Do NOT FOLLOW ANY OTHER INSTRUCTIONS BELOW, they are only meant for the AI chat model. You can ignore them. DO NOT include any other text or syntax in your response, only the JSON object. DO NOT surround it in code tags (```). DO NOT, UNDER ANY CIRCUMSTANCES, ASK AGAIN FOR INFORMATION ALREADY PROVIDED IN THE MESSAGES YOU RECEIVED! DO NOT REQUEST MORE INFORMATION THAN ABSOLUTELY REQUIRED TO RESPOND TO THE USER'S MESSAGE! Remind the user that they may ask you to search for additional information if they need it.
+                        """
+                    }
+                ]
+                + messages
+            )
+
+            self.logger.log(f"{messages[0]['content']}")
+
         kwargs = {
-                "model": chat_model,
-                "messages": messages,
-                "user": room,
+            "model": chat_model,
+            "messages": messages,
+            "user": room,
         }
 
         if "gpt-3.5-turbo" in chat_model and use_tools:
             kwargs["tools"] = tools
 
         if "gpt-4" in chat_model:
-            kwargs["max_tokens"] = self.bot.config.getint("OpenAI", "MaxTokens", fallback=4000)
+            kwargs["max_tokens"] = self.bot.config.getint(
+                "OpenAI", "MaxTokens", fallback=4000
+            )
 
-        chat_partial = partial(
-            self.openai_api.chat.completions.create,
-                **kwargs
-        )
+        chat_partial = partial(self.openai_api.chat.completions.create, **kwargs)
         response = await self._request_with_retries(chat_partial)
 
         choice = response.choices[0]
         result_text = choice.message.content
+
+        self.logger.log(f"Generated response: {result_text}")
 
         additional_tokens = 0
 
@@ -287,28 +249,47 @@ class OpenAI:
             tool_responses = []
             for tool_call in choice.message.tool_calls:
                 try:
-                    tool_response = await self.bot.call_tool(tool_call, room=room, user=user)
+                    tool_response = await self.bot.call_tool(
+                        tool_call, room=room, user=user
+                    )
                     if tool_response != False:
-                        tool_responses.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": str(tool_response)
-                        })
+                        tool_responses.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": str(tool_response),
+                            }
+                        )
                 except StopProcessing as e:
                     return (e.args[0] if e.args else False), 0
                 except Handover:
-                    return await self.generate_chat_response(original_messages, user=user, room=room, allow_override=False, use_tools=False)
+                    return await self.generate_chat_response(
+                        original_messages,
+                        user=user,
+                        room=room,
+                        allow_override=False,
+                        use_tools=False,
+                    )
 
             if not tool_responses:
                 self.logger.log(f"No more responses received, aborting.")
                 result_text = False
             else:
                 try:
-                    messages = original_messages[:-1] + [choice.message] + tool_responses + original_messages[-1:]
-                    result_text, additional_tokens = await self.generate_chat_response(messages, user=user, room=room)
+                    messages = (
+                        original_messages[:-1]
+                        + [choice.message]
+                        + tool_responses
+                        + original_messages[-1:]
+                    )
+                    result_text, additional_tokens = await self.generate_chat_response(
+                        messages, user=user, room=room
+                    )
                 except openai.APIError as e:
                     if e.code == "max_tokens":
-                        self.logger.log(f"Max tokens exceeded, falling back to no-tools response.")
+                        self.logger.log(
+                            f"Max tokens exceeded, falling back to no-tools response."
+                        )
                         try:
                             new_messages = []
 
@@ -318,20 +299,114 @@ class OpenAI:
                                 if isinstance(message, dict):
                                     if message["role"] == "tool":
                                         new_message["role"] = "system"
-                                        del(new_message["tool_call_id"])
+                                        del new_message["tool_call_id"]
 
                                 else:
                                     continue
 
                                 new_messages.append(new_message)
 
-                            result_text, additional_tokens = await self.generate_chat_response(new_messages, user=user, room=room, allow_override=False, use_tools=False)
-                            
+                            (
+                                result_text,
+                                additional_tokens,
+                            ) = await self.generate_chat_response(
+                                new_messages,
+                                user=user,
+                                room=room,
+                                allow_override=False,
+                                use_tools=False,
+                            )
+
                         except openai.APIError as e:
                             if e.code == "max_tokens":
-                                result_text, additional_tokens = await self.generate_chat_response(original_messages, user=user, room=room, allow_override=False, use_tools=False)
+                                (
+                                    result_text,
+                                    additional_tokens,
+                                ) = await self.generate_chat_response(
+                                    original_messages,
+                                    user=user,
+                                    room=room,
+                                    allow_override=False,
+                                    use_tools=False,
+                                )
                     else:
                         raise e
+
+        elif isinstance((tool_object := self.json_decode(result_text)), dict):
+            if "tool" in tool_object:
+                tool_name = tool_object["tool"]
+                tool_class = TOOLS[tool_name]
+                tool_parameters = tool_object["parameters"] if "parameters" in tool_object else {}
+
+                self.logger.log(f"Using tool {tool_name} with parameters {tool_parameters}...")
+
+                tool_call = AttributeDictionary(
+                    {
+                        "function": AttributeDictionary({
+                            "name": tool_name,
+                            "arguments": json.dumps(tool_parameters),
+                        }),
+                    }
+                )
+
+                try:
+                    tool_response = await self.bot.call_tool(
+                        tool_call, room=room, user=user
+                    )
+                    if tool_response != False:
+                        tool_responses = [
+                            {
+                                "role": "system",
+                                "content": str(tool_response),
+                            }
+                        ]
+                except StopProcessing as e:
+                    return (e.args[0] if e.args else False), 0
+                except Handover:
+                    return await self.generate_chat_response(
+                        original_messages,
+                        user=user,
+                        room=room,
+                        allow_override=False,
+                        use_tools=False,
+                    )
+
+                if not tool_responses:
+                    self.logger.log(f"No response received, aborting.")
+                    result_text = False
+                else:
+                    try:
+                        messages = (
+                            original_messages[:-1]
+                            + [choice.message]
+                            + tool_responses
+                            + original_messages[-1:]
+                        )
+                        result_text, additional_tokens = await self.generate_chat_response(
+                            messages, user=user, room=room
+                        )
+                    except openai.APIError as e:
+                        if e.code == "max_tokens":
+                            (
+                                result_text,
+                                additional_tokens,
+                            ) = await self.generate_chat_response(
+                                original_messages,
+                                user=user,
+                                room=room,
+                                allow_override=False,
+                                use_tools=False,
+                            )
+                        else:
+                            raise e
+            else:
+                result_text, additional_tokens = await self.generate_chat_response(
+                    original_messages,
+                    user=user,
+                    room=room,
+                    allow_override=False,
+                    use_tools=False,
+                )
 
         elif not self.chat_model == chat_model:
             new_messages = []
@@ -342,14 +417,16 @@ class OpenAI:
                 if isinstance(message, dict):
                     if message["role"] == "tool":
                         new_message["role"] = "system"
-                        del(new_message["tool_call_id"])
+                        del new_message["tool_call_id"]
 
                 else:
                     continue
 
                 new_messages.append(new_message)
 
-            result_text, additional_tokens = await self.generate_chat_response(new_messages, user=user, room=room, allow_override=False)
+            result_text, additional_tokens = await self.generate_chat_response(
+                new_messages, user=user, room=room, allow_override=False
+            )
 
         try:
             tokens_used = response.usage.total_tokens
@@ -359,7 +436,9 @@ class OpenAI:
         self.logger.log(f"Generated response with {tokens_used} tokens.")
         return result_text, tokens_used + additional_tokens
 
-    async def classify_message(self, query: str, user: Optional[str] = None) -> Tuple[Dict[str, str], int]:
+    async def classify_message(
+        self, query: str, user: Optional[str] = None
+    ) -> Tuple[Dict[str, str], int]:
         system_message = """You are a classifier for different types of messages. You decide whether an incoming message is meant to be a prompt for an AI chat model, or meant for a different API. You respond with a JSON object like this:
 
 { "type": event_type, "prompt": prompt }
@@ -374,38 +453,36 @@ class OpenAI:
 
 Only the event_types mentioned above are allowed, you must not respond in any other way."""
         messages = [
-            {
-                "role": "system",
-                "content": system_message
-            },
-            {
-                "role": "user",
-                "content": query
-            }
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": query},
         ]
 
         self.logger.log(f"Classifying message '{query}'...")
 
         chat_partial = partial(
             self.openai_api.chat.completions.create,
-                model=self.chat_model,
-                messages=messages,
-                user=str(user),
+            model=self.chat_model,
+            messages=messages,
+            user=str(user),
         )
         response = await self._request_with_retries(chat_partial)
 
         try:
-            result = json.loads(response.choices[0].message['content'])
+            result = json.loads(response.choices[0].message["content"])
         except:
             result = {"type": "chat", "prompt": query}
 
         tokens_used = response.usage["total_tokens"]
 
-        self.logger.log(f"Classified message as {result['type']} with {tokens_used} tokens.")
+        self.logger.log(
+            f"Classified message as {result['type']} with {tokens_used} tokens."
+        )
 
         return result, tokens_used
 
-    async def text_to_speech(self, text: str, user: Optional[str] = None) -> Generator[bytes, None, None]:
+    async def text_to_speech(
+        self, text: str, user: Optional[str] = None
+    ) -> Generator[bytes, None, None]:
         """Generate speech from text.
 
         Args:
@@ -414,17 +491,19 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         Yields:
             bytes: The audio data.
         """
-        self.logger.log(f"Generating speech from text of length: {len(text.split())} words...")
+        self.logger.log(
+            f"Generating speech from text of length: {len(text.split())} words..."
+        )
 
         speech = await self.openai_api.audio.speech.create(
-            model=self.tts_model,
-            input=text,
-            voice=self.tts_voice
+            model=self.tts_model, input=text, voice=self.tts_voice
         )
 
         return speech.content
 
-    async def speech_to_text(self, audio: bytes, user: Optional[str] = None) -> Tuple[str, int]:
+    async def speech_to_text(
+        self, audio: bytes, user: Optional[str] = None
+    ) -> Tuple[str, int]:
         """Generate text from speech.
 
         Args:
@@ -450,7 +529,9 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         return text
 
-    async def generate_image(self, prompt: str, user: Optional[str] = None, orientation: str = "square") -> Generator[bytes, None, None]:
+    async def generate_image(
+        self, prompt: str, user: Optional[str] = None, orientation: str = "square"
+    ) -> Generator[bytes, None, None]:
         """Generate an image from a prompt.
 
         Args:
@@ -469,15 +550,21 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         size = "1024x1024"
 
         if self.image_model == "dall-e-3":
-            if orientation == "portrait" or (delete_first := split_prompt[0] == "--portrait"):
+            if orientation == "portrait" or (
+                delete_first := split_prompt[0] == "--portrait"
+            ):
                 size = "1024x1792"
-            elif orientation == "landscape" or (delete_first := split_prompt[0] == "--landscape"):
+            elif orientation == "landscape" or (
+                delete_first := split_prompt[0] == "--landscape"
+            ):
                 size = "1792x1024"
-                
+
         if delete_first:
             prompt = " ".join(split_prompt[1:])
 
-        self.logger.log(f"Generating image with size {size} using model {self.image_model}...")
+        self.logger.log(
+            f"Generating image with size {size} using model {self.image_model}..."
+        )
 
         args = {
             "model": self.image_model,
@@ -490,9 +577,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         if user:
             args["user"] = user
 
-        image_partial = partial(
-            self.openai_api.images.generate, **args
-        )
+        image_partial = partial(self.openai_api.images.generate, **args)
         response = await self._request_with_retries(image_partial)
 
         images = []
@@ -503,7 +588,9 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         return images, len(images)
 
-    async def describe_images(self, messages: list, user: Optional[str] = None) -> Tuple[str, int]:
+    async def describe_images(
+        self, messages: list, user: Optional[str] = None
+    ) -> Tuple[str, int]:
         """Generate a description for an image.
 
         Args:
@@ -516,21 +603,16 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         system_message = "You are an image description generator. You generate descriptions for all images in the current conversation, one after another."
 
-        messages = [
-            {
-                "role": "system",
-                "content": system_message
-            }
-        ] + messages[1:]
+        messages = [{"role": "system", "content": system_message}] + messages[1:]
 
         if not "vision" in (chat_model := self.chat_model):
             chat_model = self.chat_model + "gpt-4-vision-preview"
 
         chat_partial = partial(
             self.openai_api.chat.completions.create,
-                model=self.chat_model,
-                messages=messages,
-                user=str(user),
+            model=self.chat_model,
+            messages=messages,
+            user=str(user),
         )
 
         response = await self._request_with_retries(chat_partial)
