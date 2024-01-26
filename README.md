@@ -51,7 +51,8 @@ to install the latest version from the Git repository.
 #### End-to-end encryption
 
 WARNING: Using end-to-end encryption seems to sometimes cause problems with
-file attachments, even in rooms that are not encrypted.
+file attachments, especially in rooms that are not encrypted, if the same
+user also uses the bot in encrypted rooms.
 
 The bot itself does not implement end-to-end encryption. However, it can be
 used in conjunction with [pantalaimon](https://github.com/matrix-org/pantalaimon),
