@@ -1,6 +1,6 @@
 # Changelog
 
-### 0.3.3 (WIP)
+### 0.3.3 (2024-01-26)
 
 * Implement recursion check in response generation (e6bc23e564e51aa149432fc67ce381a9260ee5f5)
 * Implement tool emulation for models without tool support (0acc1456f9e4efa09e799f6ce2ec9a31f439fe4a)
