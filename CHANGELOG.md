@@ -4,6 +4,7 @@
 
 * Implement recursion check in response generation (e6bc23e564e51aa149432fc67ce381a9260ee5f5)
 * Implement tool emulation for models without tool support (0acc1456f9e4efa09e799f6ce2ec9a31f439fe4a)
+* Allow selection of chat model by room (87173ae284957f66594e66166508e4e3bd60c26b)
 
 ### 0.3.2 (2023-12-14)
 
