@@ -124,6 +124,7 @@ class OpenAI:
         room: Optional[str] = None,
         allow_override: bool = True,
         use_tools: bool = True,
+        model: Optional[str] = None,
     ) -> Tuple[str, int]:
         """Generate a response to a chat message.
 
@@ -133,6 +134,7 @@ class OpenAI:
             room (Optional[str], optional): The room to use the assistant for. Defaults to None.
             allow_override (bool, optional): Whether to allow the chat model to be overridden. Defaults to True.
             use_tools (bool, optional): Whether to use tools. Defaults to True.
+            model (Optional[str], optional): The model to use. Defaults to None, which uses the default chat model.
 
         Returns:
             Tuple[str, int]: The response text and the number of tokens used.
@@ -140,6 +142,8 @@ class OpenAI:
         self.logger.log(
             f"Generating response to {len(messages)} messages for user {user} in room {room}..."
         )
+
+        chat_model = model or self.chat_model
 
         # Check current recursion depth to prevent infinite loops
 
@@ -157,6 +161,7 @@ class OpenAI:
                     room=room,
                     allow_override=False, # TODO: Could this be a problem?
                     use_tools=False,
+                    model=model,
                 )
 
         tools = [
@@ -171,10 +176,9 @@ class OpenAI:
             for tool_name, tool_class in TOOLS.items()
         ]
 
-        chat_model = self.chat_model
         original_messages = messages
 
-        if allow_override and not "gpt-3.5-turbo" in self.chat_model:
+        if allow_override and not "gpt-3.5-turbo" in model:
             if self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False):
                 self.logger.log(f"Overriding chat model to use tools")
                 chat_model = "gpt-3.5-turbo-1106"
@@ -204,7 +208,7 @@ class OpenAI:
             use_tools
             and self.bot.config.getboolean("OpenAI", "EmulateTools", fallback=False)
             and not self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False)
-            and not "gpt-3.5-turbo" in self.chat_model
+            and not "gpt-3.5-turbo" in chat_model
         ):
             self.bot.logger.log("Using tool emulation mode.", "debug")
 

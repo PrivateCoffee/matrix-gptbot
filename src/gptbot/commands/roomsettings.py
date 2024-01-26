@@ -80,6 +80,40 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
         await bot.send_message(room, f"The current {setting} status is: '{value}'.", True)
         return
 
+    if bot.allow_model_override and setting == "model":
+        if value:
+            bot.logger.log(f"Setting chat model for {room.room_id} to {value}...")
+
+            with closing(bot.database.cursor()) as cur:
+                cur.execute(
+                    """INSERT INTO room_settings (room_id, setting, value) VALUES (?, ?, ?)
+                    ON CONFLICT (room_id, setting) DO UPDATE SET value = ?;""",
+                    (room.room_id, "model", value, value)
+                )
+
+            bot.database.commit()
+
+            await bot.send_message(room, f"Alright, I've set the chat model to: '{value}'.", True)
+            return
+
+        bot.logger.log(f"Retrieving chat model for {room.room_id}...")
+
+        with closing(bot.database.cursor()) as cur:
+            cur.execute(
+                """SELECT value FROM room_settings WHERE room_id = ? AND setting = ?;""",
+                (room.room_id, "model")
+            )
+
+            value = cur.fetchone()[0]
+
+            if not value:
+                value = bot.chat_api.chat_model
+            else:
+                value = str(value)
+
+        await bot.send_message(room, f"The current chat model is: '{value}'.", True)
+        return
+
     message = f"""The following settings are available:
 
 - system_message [message]: Get or set the system message to be sent to the chat model
@@ -89,5 +123,8 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
 - stt [true/false]: Get or set whether the bot should attempt to process information from audio files
 - timing [true/false]: Get or set whether the bot should return information about the time it took to generate a response
 """
+
+    if bot.allow_model_override:
+        message += "- model [model]: Get or set the chat model to be used for this room"
 
     await bot.send_message(room, message, True)
