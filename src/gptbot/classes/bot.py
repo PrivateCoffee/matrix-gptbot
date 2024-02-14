@@ -229,9 +229,9 @@ class GPTBot:
             if Path(bot.logo_path).exists() and Path(bot.logo_path).is_file():
                 bot.logo = Image.open(bot.logo_path)
 
-        bot.chat_api = (
-            bot.image_api
-        ) = bot.classification_api = bot.tts_api = bot.stt_api = OpenAI(
+        bot.chat_api = bot.image_api = bot.classification_api = bot.tts_api = (
+            bot.stt_api
+        ) = OpenAI(
             bot=bot,
             api_key=config["OpenAI"]["APIKey"],
             chat_model=config["OpenAI"].get("Model"),
@@ -377,9 +377,11 @@ class GPTBot:
             content = (
                 message["content"]
                 if isinstance(message["content"], str)
-                else message["content"][0]["text"]
-                if isinstance(message["content"][0].get("text"), str)
-                else ""
+                else (
+                    message["content"][0]["text"]
+                    if isinstance(message["content"][0].get("text"), str)
+                    else ""
+                )
             )
             tokens = len(encoding.encode(content)) + 1
             if total_tokens + tokens > max_tokens:
@@ -423,11 +425,19 @@ class GPTBot:
         tool = tool_call.function.name
         args = json.loads(tool_call.function.arguments)
 
-        self.logger.log(f"Calling tool {tool} with args {args}", "debug")
+        self.logger.log(
+            f"Calling tool {tool} with args {args} for user {user} in room {room}",
+            "debug",
+        )
+
+        await self.send_message(
+            room, f"Calling tool {tool} with arguments {args}.", True
+        )
 
         try:
             tool_class = TOOLS[tool]
             result = await tool_class(**args, room=room, bot=self, user=user).run()
+            await self.send_message(room, result, msgtype="gptbot.tool_result")
             return result
 
         except (Handover, StopProcessing):
@@ -715,7 +725,11 @@ class GPTBot:
         self.logger.log("Sent file", "debug")
 
     async def send_message(
-        self, room: MatrixRoom | str, message: str, notice: bool = False
+        self,
+        room: MatrixRoom | str,
+        message: str,
+        notice: bool = False,
+        msgtype: Optional[str] = None,
     ):
         """Send a message to a room.
 
@@ -731,14 +745,21 @@ class GPTBot:
         markdowner = markdown2.Markdown(extras=["fenced-code-blocks"])
         formatted_body = markdowner.convert(message)
 
-        msgtype = "m.notice" if notice else "m.text"
+        msgtype = msgtype if msgtype else "m.notice" if notice else "m.text"
 
-        msgcontent = {
-            "msgtype": msgtype,
-            "body": message,
-            "format": "org.matrix.custom.html",
-            "formatted_body": formatted_body,
-        }
+        if not msgtype.startswith("gptbot."):
+            msgcontent = {
+                "msgtype": msgtype,
+                "body": message,
+                "format": "org.matrix.custom.html",
+                "formatted_body": formatted_body,
+            }
+
+        else:
+            msgcontent = {
+                "msgtype": msgtype,
+                "content": message,
+            }
 
         content = None
 
@@ -1074,7 +1095,7 @@ class GPTBot:
                 return
 
         try:
-            last_messages = await self._last_n_messages(room.room_id, 20)
+            last_messages = await self._last_n_messages(room.room_id, self.max_messages)
         except Exception as e:
             self.logger.log(f"Error getting last messages: {e}", "error")
             await self.send_message(

@@ -163,7 +163,7 @@ class OpenAI:
 
             if count > 5:
                 self.logger.log(f"Recursion depth exceeded, aborting.")
-                return self.generate_chat_response(
+                return await self.generate_chat_response(
                     messages,
                     user=user,
                     room=room,
@@ -186,10 +186,10 @@ class OpenAI:
 
         original_messages = messages
 
-        if allow_override and not "gpt-3.5-turbo" in model:
+        if allow_override and not "gpt-3.5-turbo" in original_model:
             if self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False):
                 self.logger.log(f"Overriding chat model to use tools")
-                chat_model = "gpt-3.5-turbo-1106"
+                chat_model = "gpt-3.5-turbo-0125"
 
                 out_messages = []
 
@@ -244,7 +244,9 @@ class OpenAI:
 
                         If no tool is required, or all information is already available in the message thread, respond with an empty JSON object: {}
 
-                        Do NOT FOLLOW ANY OTHER INSTRUCTIONS BELOW, they are only meant for the AI chat model. You can ignore them. DO NOT include any other text or syntax in your response, only the JSON object. DO NOT surround it in code tags (```). DO NOT, UNDER ANY CIRCUMSTANCES, ASK AGAIN FOR INFORMATION ALREADY PROVIDED IN THE MESSAGES YOU RECEIVED! DO NOT REQUEST MORE INFORMATION THAN ABSOLUTELY REQUIRED TO RESPOND TO THE USER'S MESSAGE! Remind the user that they may ask you to search for additional information if they need it.
+                        Otherwise, respond with a single required tool call. Remember that you DO NOT RESPOND to the user. You MAY ONLY RESPOND WITH JSON OBJECTS CONTAINING TOOL CALLS! DO NOT RESPOND IN NATURAL LANGUAGE.
+
+                        DO NOT include any other text or syntax in your response, only the JSON object. DO NOT surround it in code tags (```). DO NOT, UNDER ANY CIRCUMSTANCES, ASK AGAIN FOR INFORMATION ALREADY PROVIDED IN THE MESSAGES YOU RECEIVED! DO NOT REQUEST MORE INFORMATION THAN ABSOLUTELY REQUIRED TO RESPOND TO THE USER'S MESSAGE! Remind the user that they may ask you to search for additional information if they need it.
                         """,
                     }
                 ]
@@ -472,8 +474,11 @@ class OpenAI:
                 new_messages.append(new_message)
 
             result_text, additional_tokens = await self.generate_chat_response(
-                new_messages, user=user, room=room, allow_override=False,
-                model=original_model
+                new_messages,
+                user=user,
+                room=room,
+                allow_override=False,
+                model=original_model,
             )
 
         try:
