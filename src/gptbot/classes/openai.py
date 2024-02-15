@@ -164,7 +164,7 @@ class OpenAI:
             if count > 5:
                 self.logger.log(f"Recursion depth exceeded, aborting.")
                 return await self.generate_chat_response(
-                    messages,
+                    messsages=messages,
                     user=user,
                     room=room,
                     allow_override=False,  # TODO: Could this be a problem?
@@ -298,7 +298,7 @@ class OpenAI:
                     return (e.args[0] if e.args else False), 0
                 except Handover:
                     return await self.generate_chat_response(
-                        original_messages,
+                        messages=original_messages,
                         user=user,
                         room=room,
                         allow_override=False,
@@ -318,7 +318,7 @@ class OpenAI:
                         + original_messages[-1:]
                     )
                     result_text, additional_tokens = await self.generate_chat_response(
-                        messages, user=user, room=room, model=original_messages
+                        messages=messages, user=user, room=room, model=original_model
                     )
                 except openai.APIError as e:
                     if e.code == "max_tokens":
@@ -345,7 +345,7 @@ class OpenAI:
                                 result_text,
                                 additional_tokens,
                             ) = await self.generate_chat_response(
-                                new_messages,
+                                messages=new_messages,
                                 user=user,
                                 room=room,
                                 allow_override=False,
@@ -359,7 +359,7 @@ class OpenAI:
                                     result_text,
                                     additional_tokens,
                                 ) = await self.generate_chat_response(
-                                    original_messages,
+                                    messages=original_messages,
                                     user=user,
                                     room=room,
                                     allow_override=False,
@@ -407,7 +407,7 @@ class OpenAI:
                     return (e.args[0] if e.args else False), 0
                 except Handover:
                     return await self.generate_chat_response(
-                        original_messages,
+                        messages=original_messages,
                         user=user,
                         room=room,
                         allow_override=False,
@@ -430,7 +430,10 @@ class OpenAI:
                             result_text,
                             additional_tokens,
                         ) = await self.generate_chat_response(
-                            messages, user=user, room=room
+                            messages=messages,
+                            user=user,
+                            room=room,
+                            model=original_model,
                         )
                     except openai.APIError as e:
                         if e.code == "max_tokens":
@@ -438,7 +441,7 @@ class OpenAI:
                                 result_text,
                                 additional_tokens,
                             ) = await self.generate_chat_response(
-                                original_messages,
+                                messages=original_messages,
                                 user=user,
                                 room=room,
                                 allow_override=False,
@@ -449,7 +452,7 @@ class OpenAI:
                             raise e
             else:
                 result_text, additional_tokens = await self.generate_chat_response(
-                    original_messages,
+                    messages=original_messages,
                     user=user,
                     room=room,
                     allow_override=False,
@@ -474,7 +477,7 @@ class OpenAI:
                 new_messages.append(new_message)
 
             result_text, additional_tokens = await self.generate_chat_response(
-                new_messages,
+                messages=new_messages,
                 user=user,
                 room=room,
                 allow_override=False,
