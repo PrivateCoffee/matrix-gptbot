@@ -296,7 +296,7 @@ class GPTBot:
         self,
         room: str | MatrixRoom,
         n: Optional[int],
-        ignore_bot_commands: bool = False,
+        ignore_notices: bool = True,
     ):
         messages = []
         n = n or self.max_messages
@@ -323,17 +323,20 @@ class GPTBot:
             if len(messages) >= n:
                 break
 
-            if isinstance(event, RoomMessageText):
-                if event.body.startswith("!gptbot ignoreolder"):
+            if event.type.startswith("gptbot"):
+                messages.append(event)
+
+            elif isinstance(event, RoomMessageText):
+                if event.body.split() == ["!gptbot", "ignoreolder"]:
                     break
-                if (not event.body.startswith("!")) or (not ignore_bot_commands):
+                if (not event.body.startswith("!")) or (event.body.split()[1] == "custom"):
                     messages.append(event)
 
-            if isinstance(event, RoomMessageNotice):
-                if not ignore_bot_commands:
+            elif isinstance(event, RoomMessageNotice):
+                if not ignore_notices:
                     messages.append(event)
 
-            if isinstance(event, RoomMessageMedia):
+            elif isinstance(event, RoomMessageMedia):
                 messages.append(event)
 
         self.logger.log(f"Found {len(messages)} messages (limit: {n})", "debug")
