@@ -34,6 +34,7 @@ from nio import (
     DownloadResponse,
     ToDeviceEvent,
     ToDeviceError,
+    RoomGetStateError,
 )
 from nio.store import SqliteStore
 
@@ -329,7 +330,9 @@ class GPTBot:
             elif isinstance(event, RoomMessageText):
                 if event.body.split() == ["!gptbot", "ignoreolder"]:
                     break
-                if (not event.body.startswith("!")) or (event.body.split()[1] == "custom"):
+                if (not event.body.startswith("!")) or (
+                    event.body.split()[1] == "custom"
+                ):
                     messages.append(event)
 
             elif isinstance(event, RoomMessageNotice):
@@ -812,6 +815,22 @@ class GPTBot:
             (message, room, tokens, api, datetime.now()),
         )
 
+    async def get_state_event(
+        self, room: MatrixRoom | str, event_type: str, state_key: Optional[str] = None
+    ):
+        if isinstance(room, MatrixRoom):
+            room = room.room_id
+
+        state = await self.matrix_client.room_get_state(room)
+
+        if isinstance(state, RoomGetStateError):
+            self.logger.log(f"Could not get state for room {room}")
+
+        for event in state.events:
+            if event["type"] == event_type:
+                if state_key is None or event["state_key"] == state_key:
+                    return event
+
     async def run(self):
         """Start the bot."""
 
@@ -890,12 +909,14 @@ class GPTBot:
             asyncio.create_task(self.matrix_client.set_avatar(uri))
 
             for room in self.matrix_client.rooms.keys():
-                self.logger.log(f"Setting avatar for {room}...", "debug")
-                asyncio.create_task(
-                    self.matrix_client.room_put_state(
-                        room, "m.room.avatar", {"url": uri}, ""
+                room_avatar = await self.get_state_event(room, "m.room.avatar")
+                if not room_avatar:
+                    self.logger.log(f"Setting avatar for {room}...", "debug")
+                    asyncio.create_task(
+                        self.matrix_client.room_put_state(
+                            room, "m.room.avatar", {"url": uri}, ""
+                        )
                     )
-                )
 
         # Start syncing events
         self.logger.log("Starting sync loop...", "warning")
