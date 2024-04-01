@@ -45,7 +45,7 @@ pip install matrix-gptbot[all]
 This will install the latest release of the bot and all required dependencies
 for all available features.
 
-You can also use `pip install git+https://kumig.it/kumitterer/matrix-gptbot.git`
+You can also use `pip install git+https://git.private.coffee/kumi/matrix-gptbot.git`
 to install the latest version from the Git repository.
 
 #### End-to-end encryption
@@ -80,7 +80,7 @@ Clone the repository and install the requirements to a virtual environment.
 ```shell
 # Clone the repository
 
-git clone https://kumig.it/kumitterer/matrix-gptbot.git
+git clone https://git.private.coffee/kumi/matrix-gptbot.git
 cd matrix-gptbot
 
 # If desired, activate a venv first
