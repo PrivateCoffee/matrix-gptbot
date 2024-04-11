@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.5"
+version = "0.3.6"
 
 authors = [
   { name="Kumi Mitterer", email="gptbot@kumi.email" },
@@ -69,7 +69,7 @@ dev = [
 "Bug Tracker" = "https://kumig.it/kumitterer/matrix-gptbot/issues"
 
 [project.scripts]
-gptbot = "gptbot:main"
+gptbot = "gptbot.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gptbot"]
