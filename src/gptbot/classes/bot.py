@@ -321,10 +321,16 @@ class GPTBot:
             )
 
         for event in response.chunk:
-            if len(messages) >= n:
-                break
+            try:
+                event_type = event.type
+            except AttributeError:
+                try:
+                    event_type = event.source["content"]["msgtype"]
+                except KeyError:
+                    self.logger.log(f"Could not process event: {event}", "debug")
+                    continue # This is most likely not a message event
 
-            if event.type.startswith("gptbot"):
+            if event_type.startswith("gptbot"):
                 messages.append(event)
 
             elif isinstance(event, RoomMessageText):
@@ -341,6 +347,9 @@ class GPTBot:
 
             elif isinstance(event, RoomMessageMedia):
                 messages.append(event)
+
+            if len(messages) >= n:
+                break
 
         self.logger.log(f"Found {len(messages)} messages (limit: {n})", "debug")
 
