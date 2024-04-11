@@ -1,7 +1,8 @@
 # Changelog
 
-### Unreleased
+### 0.3.5 (2024-04-11)
 
+* Fix issue where message type detection would fail for some messages (cece8cfb24e6f2e98d80d233b688c3e2c0ff05ae)
 * Only set room avatar if it is not already set (a9c23ee9c42d0a741a7eb485315e3e2d0a526725)
 
 ### 0.3.4 (2024-02-18)
