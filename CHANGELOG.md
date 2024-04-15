@@ -1,5 +1,10 @@
 # Changelog
 
+### 0.3.7 / 0.3.8 (2024-04-15)
+
+* Changes to URLs in pyproject.toml
+* Migrated build pipeline to Forgejo Actions
+
 ### 0.3.6 (2024-04-11)
 
 * Fix issue where message type detection would fail for some messages (cece8cfb24e6f2e98d80d233b688c3e2c0ff05ae)
