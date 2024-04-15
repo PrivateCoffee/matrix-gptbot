@@ -1,5 +1,7 @@
 # GPTbot
 
+[![Support Private.coffee!](https://shields.private.coffee/badge/private.coffee-support%20us!-pink?logo=coffeescript)](https://private.coffee)
+
 GPTbot is a simple bot that uses different APIs to generate responses to
 messages in a Matrix room.
 

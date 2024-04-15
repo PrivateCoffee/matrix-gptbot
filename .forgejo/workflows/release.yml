@@ -1,0 +1,53 @@
+name: Python Package CI/CD
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  setup:
+    name: Setup and Test
+    container:
+      image: python:3.10
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python environment
+        run: |
+          python -V
+          python -m venv venv
+          source venv/bin/activate
+          pip install -U pip
+          pip install .[all]
+
+  publish:
+    name: Publish to PyPI
+    container:
+      image: python:3.10
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+
+      - name: Install publishing tools
+        run: |
+          pip install -U hatchling twine build
+
+      - name: Build the package
+        run: |
+          python -m build .
+
+      - name: Publish the package to PyPI
+        run: |
+          python -m twine upload --username __token__ --password ${PYPI_TOKEN} dist/*
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
