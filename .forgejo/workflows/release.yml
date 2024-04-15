@@ -43,21 +43,12 @@ jobs:
           apt update
           apt install -y python3 python3-venv
 
-      - name: Set up Python environment
+      - name: Publish to PyPI
         run: |
           python3 -m venv venv
           . ./venv/bin/activate
-
-      - name: Install publishing tools
-        run: |
           pip install -U hatchling twine build
-
-      - name: Build the package
-        run: |
           python -m build .
-
-      - name: Publish the package to PyPI
-        run: |
           python -m twine upload --username __token__ --password ${PYPI_TOKEN} dist/*
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
