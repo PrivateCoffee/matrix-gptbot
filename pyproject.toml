@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.7"
+version = "0.3.8"
 
 authors = [
   { name="Kumi Mitterer", email="gptbot@kumi.email" },
@@ -65,8 +65,9 @@ dev = [
 ]
 
 [project.urls]
-"Homepage" = "https://kumig.it/kumitterer/matrix-gptbot"
-"Bug Tracker" = "https://kumig.it/kumitterer/matrix-gptbot/issues"
+"Homepage" = "https://git.private.coffee/kumi/matrix-gptbot"
+"Bug Tracker" = "https://git.private.coffee/kumi/matrix-gptbot/issues"
+"Source Code" = "https://git.private.coffee/kumi/matrix-gptbot"
 
 [project.scripts]
 gptbot = "gptbot.__main__:main"
