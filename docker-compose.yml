@@ -3,3 +3,12 @@ version: '3.8'
 services:
   gptbot:
     build: .
+    volumes:
+      - ./settings.ini:/app/settings.ini
+
+  pantalaimon:
+    image: matrixdotorg/pantalaimon
+    volumes:
+      - ./pantalaimon.conf:/etc/pantalaimon/pantalaimon.conf
+    ports:
+      - "8010:8010"

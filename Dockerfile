@@ -1,7 +1,10 @@
 FROM python:3.12-slim
 
-WORKDIR /usr/src/app
-COPY . .
+WORKDIR /app
+COPY src/ /app/src
+COPY pyproject.toml /app
+COPY README.md /app
+COPY LICENSE /app
 
 RUN pip install .[all]
 
