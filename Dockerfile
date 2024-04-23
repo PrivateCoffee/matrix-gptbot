@@ -6,6 +6,7 @@ COPY pyproject.toml /app
 COPY README.md /app
 COPY LICENSE /app
 
+RUN apt update && apt install -y build-essential libpython3-dev
 RUN pip install .[all]
 
 CMD ["python", "-m", "gptbot"]
