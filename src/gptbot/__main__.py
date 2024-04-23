@@ -40,7 +40,12 @@ def main():
     config.read(args.config)
 
     # Create bot
-    bot = GPTBot.from_config(config)
+    bot, new_config = GPTBot.from_config(config)
+
+    # Update config with new values
+    if new_config:
+        with open(args.config, "w") as configfile:
+            new_config.write(configfile)
 
     # Listen for SIGTERM
     signal.signal(signal.SIGTERM, sigterm_handler)

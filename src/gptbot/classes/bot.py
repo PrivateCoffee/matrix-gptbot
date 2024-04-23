@@ -264,12 +264,22 @@ class GPTBot:
 
         homeserver = config["Matrix"]["Homeserver"]
         bot.matrix_client = AsyncClient(homeserver)
-        bot.matrix_client.access_token = config["Matrix"]["AccessToken"]
-        bot.matrix_client.user_id = config["Matrix"].get("UserID")
-        bot.matrix_client.device_id = config["Matrix"].get("DeviceID")
 
-        # Return the new GPTBot instance
-        return bot
+        if ("Password" in config["Matrix"]) and config.get("Matrix", "Password"):
+            await bot.matrix_client.login(password=config["Matrix"]["Password"])
+
+            config["Matrix"]["AccessToken"] = bot.matrix_client.access_token
+            config["Matrix"]["UserID"] = bot.matrix_client.user_id
+            config["Matrix"]["DeviceID"] = bot.matrix_client.device_id
+            config["Matrix"]["Password"] = ""
+
+        else:
+            bot.matrix_client.access_token = config["Matrix"]["AccessToken"]
+            bot.matrix_client.user_id = config["Matrix"].get("UserID")
+            bot.matrix_client.device_id = config["Matrix"].get("DeviceID")
+
+        # Return the new GPTBot instance and the (potentially modified) config
+        return bot, config
 
     async def _get_user_id(self) -> str:
         """Get the user ID of the bot from the whoami endpoint.
@@ -330,7 +340,7 @@ class GPTBot:
                     event_type = event.source["content"]["msgtype"]
                 except KeyError:
                     self.logger.log(f"Could not process event: {event}", "debug")
-                    continue # This is most likely not a message event
+                    continue  # This is most likely not a message event
 
             if event_type.startswith("gptbot"):
                 messages.append(event)
