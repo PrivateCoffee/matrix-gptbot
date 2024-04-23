@@ -51,8 +51,12 @@ e2ee = [
     "pantalaimon>=0.10.5",
 ]
 
+trackingmore = [
+    "trackingmore-api-tool",
+]
+
 all = [
-  "matrix-gptbot[openai,wolframalpha,e2ee]",
+  "matrix-gptbot[openai,wolframalpha,e2ee,trackingmore]",
   "geopy",
   "beautifulsoup4",
 ]

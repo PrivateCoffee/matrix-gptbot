@@ -60,6 +60,8 @@ from ..migrations import migrate
 from ..callbacks import RESPONSE_CALLBACKS, EVENT_CALLBACKS
 from ..commands import COMMANDS
 from ..tools import TOOLS, Handover, StopProcessing
+
+# TODO: Make these optional based on config
 from .openai import OpenAI
 from .wolframalpha import WolframAlpha
 from .trackingmore import TrackingMore
