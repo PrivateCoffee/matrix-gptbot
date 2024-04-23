@@ -54,45 +54,9 @@ to install the latest version from the Git repository.
 
 #### Docker
 
-##### From Docker Hub
-
-A Docker image is available on Docker Hub. You can use it to run the bot in a
-Docker container.
-
-```shell
-# Create a config file from the provided example
-cp config.dist.ini config.ini
-# Edit the config file to your needs
-
-# Run the bot
-docker run -v config.ini:/app/config.ini kumitterer/matrix-gptbot
-```
-
-##### Building the image
-
-Alternatively, you can use the provided `Dockerfile` to build and run the bot
-locally.
-
-```shell
-# Clone the repository
-git clone https://git.private.coffee/privatecoffee/matrix-gptbot.git
-cd matrix-gptbot
-
-# Build the Docker image
-docker build -t matrix-gptbot .
-
-# Create a config file
-cp config.dist.ini config.ini
-# Edit the config file to your needs
-
-# Run the bot
-docker run -v config.ini:/app/config.ini matrix-gptbot
-```
-
-##### Docker Compose
-
 A `docker-compose.yml` file is provided that you can use to run the bot with
-Docker Compose. You will need to create a `config.ini` file as described above.
+Docker Compose. You will need to create a `config.ini` file as described in the
+`Running` section.
 
 ```shell
 # Clone the repository
@@ -102,6 +66,9 @@ cd matrix-gptbot
 # Create a config file
 cp config.dist.ini config.ini
 # Edit the config file to your needs
+
+# Initialize the database file
+sqlite3 database.db "SELECT 1"
 
 # Optionally, create Pantalaimon config
 cp pantalaimon.example.conf pantalaimon.conf
