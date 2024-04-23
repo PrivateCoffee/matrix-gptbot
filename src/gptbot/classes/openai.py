@@ -253,8 +253,6 @@ class OpenAI:
                 + messages
             )
 
-            self.logger.log(f"{messages[0]['content']}")
-
         kwargs = {
             "model": chat_model,
             "messages": messages,
