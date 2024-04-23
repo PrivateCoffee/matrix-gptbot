@@ -8,5 +8,6 @@ COPY LICENSE /app
 
 RUN apt update && apt install -y build-essential libpython3-dev
 RUN pip install .[all]
+RUN pip install 'future==1.0.0'
 
 CMD ["python", "-m", "gptbot"]

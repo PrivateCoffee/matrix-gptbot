@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   gptbot:
-    build: .
+    image: kumitterer/matrix-gptbot
     volumes:
       - ./config.ini:/app/config.ini
 
@@ -11,4 +11,4 @@ services:
     volumes:
       - ./pantalaimon.conf:/etc/pantalaimon/pantalaimon.conf
     ports:
-      - "8010:8010"
+      - "8009:8009"
