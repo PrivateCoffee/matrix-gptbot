@@ -2,8 +2,8 @@ name: Docker CI/CD
 
 on:
   push:
-    branches:
-      - "docker"
+    tags:
+      - "*"
 
 jobs:
   docker:
@@ -28,6 +28,4 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: |
-            kumitterer/matrix-gptbot:latest
-            kumitterer/matrix-gptbot:${{ env.GITHUB_SHA }}
+          tags: kumitterer/matrix-gptbot:${{ env.GITHUB_REF_NAME }}
