@@ -5,6 +5,7 @@
 * Add Docker support for running the bot in a container
 * Add TrackingMore dependency to pyproject.toml
 * Replace deprecated `pkg_resources` with `importlib.metadata`
+* Allow password-based login on first login
 
 ### 0.3.7 / 0.3.8 (2024-04-15)
 
