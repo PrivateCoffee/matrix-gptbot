@@ -43,6 +43,4 @@ jobs:
           push: true
           tags: |
             git.private.coffee/privatecoffee/matrix-gptbot:latest
-            |
-            git.private.coffee/privatecoffee/matrix-gptbot:latest
             git.private.coffee/privatecoffee/matrix-gptbot:${{ env.GITHUB_SHA }}
