@@ -5,14 +5,14 @@ from configparser import ConfigParser
 
 import signal
 import asyncio
-import pkg_resources
+import importlib.metadata
 
 def sigterm_handler(_signo, _stack_frame):
     exit()
 
 def get_version():
     try:
-        package_version = pkg_resources.get_distribution("matrix_gptbot").version
+        package_version = importlib.metadata.version("matrix_gptbot")
     except pkg_resources.DistributionNotFound:
         return None
     return package_version

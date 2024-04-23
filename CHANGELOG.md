@@ -2,6 +2,10 @@
 
 ### 0.3.9 (unreleased)
 
+* Add Docker support for running the bot in a container
+* Add TrackingMore dependency to pyproject.toml
+* Replace deprecated `pkg_resources` with `importlib.metadata`
+
 ### 0.3.7 / 0.3.8 (2024-04-15)
 
 * Changes to URLs in pyproject.toml
