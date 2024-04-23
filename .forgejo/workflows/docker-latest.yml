@@ -7,7 +7,6 @@ on:
 
 jobs:
   docker:
-    runs-on: ubuntu-latest
     steps:
       -
         name: Set up QEMU
