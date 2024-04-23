@@ -31,7 +31,9 @@ system features.
 
 ### Production
 
-The easiest way to install the bot is to use pip to install it from pypi.
+#### PyPI
+
+The recommended way to install the bot is to use pip to install it from PyPI.
 
 ```shell
 # If desired, activate a venv first
@@ -50,10 +52,65 @@ for all available features.
 You can also use `pip install git+https://git.private.coffee/privatecoffee/matrix-gptbot.git`
 to install the latest version from the Git repository.
 
-#### Configuration
+#### Docker
 
-The bot requires a configuration file to be present in the working directory.
-Copy the provided `config.dist.ini` to `config.ini` and edit it to your needs.
+##### From Docker Hub
+
+A Docker image is available on Docker Hub. You can use it to run the bot in a
+Docker container.
+
+```shell
+# Create a config file from the provided example
+cp config.dist.ini config.ini
+# Edit the config file to your needs
+
+# Run the bot
+docker run -v config.ini:/app/config.ini kumitterer/matrix-gptbot
+```
+
+##### Building the image
+
+Alternatively, you can use the provided `Dockerfile` to build and run the bot
+locally.
+
+```shell
+# Clone the repository
+git clone https://git.private.coffee/privatecoffee/matrix-gptbot.git
+cd matrix-gptbot
+
+# Build the Docker image
+docker build -t matrix-gptbot .
+
+# Create a config file
+cp config.dist.ini config.ini
+# Edit the config file to your needs
+
+# Run the bot
+docker run -v config.ini:/app/config.ini matrix-gptbot
+```
+
+##### Docker Compose
+
+A `docker-compose.yml` file is provided that you can use to run the bot with
+Docker Compose. You will need to create a `config.ini` file as described above.
+
+```shell
+# Clone the repository
+git clone https://git.private.coffee/privatecoffee/matrix-gptbot.git
+cd matrix-gptbot
+
+# Create a config file
+cp config.dist.ini config.ini
+# Edit the config file to your needs
+
+# Optionally, create Pantalaimon config
+cp pantalaimon.example.conf pantalaimon.conf
+# Edit the Pantalaimon config file to your needs
+# Don't forget to update config.ini to point to your Pantalaimon instance
+
+# Start the bot
+docker-compose up -d
+```
 
 #### End-to-end encryption
 
@@ -115,7 +172,12 @@ before merging.
 
 ## Running
 
-The bot can be run with `python -m gptbot`. If required, activate a venv first.
+The bot requires a configuration file to be present in the working directory.
+
+Copy the provided `config.dist.ini` to `config.ini` and edit it to your needs.
+
+The bot can then be run with `python -m gptbot`. If required, activate a venv
+first.
 
 You may want to run the bot in a screen or tmux session, or use a process
 manager like systemd. The repository contains a sample systemd service file
