@@ -7,14 +7,14 @@ messages in a Matrix room.
 
 ## Features
 
-- AI-generated responses to text, image and voice messages in a Matrix room 
-(chatbot)
-  - Currently supports OpenAI (`gpt-3.5-turbo` and `gpt-4`, including vision 
-  preview, `whisper` and `tts`)
+- AI-generated responses to text, image and voice messages in a Matrix room
+  (chatbot)
+  - Currently supports OpenAI (`gpt-3.5-turbo` and `gpt-4`, including vision
+    preview, `whisper` and `tts`)
   - Able to generate pictures using OpenAI `dall-e-2`/`dall-e-3` models
   - Able to browse the web to find information
-  - Able to use OpenWeatherMap to get weather information (requires separate 
-  API key)
+  - Able to use OpenWeatherMap to get weather information (requires separate
+    API key)
   - Even able to roll dice!
 - Mathematical calculations via the `!gptbot calculate` command
   - Currently supports WolframAlpha (requires separate API key)
@@ -50,6 +50,11 @@ for all available features.
 You can also use `pip install git+https://git.private.coffee/privatecoffee/matrix-gptbot.git`
 to install the latest version from the Git repository.
 
+#### Configuration
+
+The bot requires a configuration file to be present in the working directory.
+Copy the provided `config.dist.ini` to `config.ini` and edit it to your needs.
+
 #### End-to-end encryption
 
 WARNING: Using end-to-end encryption seems to sometimes cause problems with
@@ -67,11 +72,11 @@ your homeserver. Then, start pantalaimon with `pantalaimon -c pantalaimon.conf`.
 You first have to log in to your homeserver using `python pantalaimon_first_login.py`,
 and can then use the returned access token in your bot's `config.ini` file.
 
-Make sure to also point the bot to your pantalaimon instance by setting 
-`homeserver` to your pantalaimon instance instead of directly to your 
+Make sure to also point the bot to your pantalaimon instance by setting
+`homeserver` to your pantalaimon instance instead of directly to your
 homeserver in your `config.ini`.
 
-Note: If you don't use pantalaimon, the bot will still work, but it will not 
+Note: If you don't use pantalaimon, the bot will still work, but it will not
 be able to decrypt or encrypt messages. This means that you cannot use it in
 rooms with end-to-end encryption enabled.
 
@@ -81,31 +86,32 @@ Clone the repository and install the requirements to a virtual environment.
 
 ```shell
 # Clone the repository
-
 git clone https://git.private.coffee/privatecoffee/matrix-gptbot.git
 cd matrix-gptbot
 
 # If desired, activate a venv first
-
 python -m venv venv
 . venv/bin/activate
 
 # Install the bot in editable mode
-
 pip install -e .[dev]
 
 # Go to the bot directory and start working
-
 cd src/gptbot
 ```
 
 Of course, you can also fork the repository on [GitHub](https://github.com/kumitterer/matrix-gptbot/)
 and work on your own copy.
 
-### Configuration
+#### Repository policy
 
-The bot requires a configuration file to be present in the working directory.
-Copy the provided `config.dist.ini` to `config.ini` and edit it to your needs.
+Generally, the `main` branch is considered unstable and should not be used in
+production. Instead, use the latest release tag. The `main` branch is used for
+development and may contain breaking changes at any time.
+
+For development, a feature branch should be created from `main` and merged back
+into `main` with a pull request. The pull request will be reviewed and tested
+before merging.
 
 ## Running
 
@@ -151,18 +157,18 @@ of a cat.
 
 Note that this only works if the bot is configured to use a model that supports
 tools. This currently is only the case for OpenAI's `gpt-3.5-turbo` model. If
-you wish to use `gpt-4` instead, you can set the `ForceTools` option in the 
+you wish to use `gpt-4` instead, you can set the `ForceTools` option in the
 `[OpenAI]` section of the config file to `1`. This will cause the bot to use
 `gpt-3.5-turbo` for tool generation and `gpt-4` for generating the final text
 response.
 
-Similarly, it will attempt to use the `gpt-4-vision-preview` model to "read" 
+Similarly, it will attempt to use the `gpt-4-vision-preview` model to "read"
 the contents of images if a non-vision model is used.
 
 ### Commands
 
 There are a few commands that you can use to explicitly call a certain feature
-of the bot. For example, if you want to generate an image from a text prompt, 
+of the bot. For example, if you want to generate an image from a text prompt,
 you can use the `!gptbot imagine` command. For example, `!gptbot imagine a cat`
 will cause the bot to generate an image of a cat.
 
