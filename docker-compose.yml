@@ -5,6 +5,7 @@ services:
     image: kumitterer/matrix-gptbot
     volumes:
       - ./config.ini:/app/config.ini
+      - ./database.db:/app/database.db
 
   pantalaimon:
     image: matrixdotorg/pantalaimon
