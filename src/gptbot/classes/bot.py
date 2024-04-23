@@ -328,7 +328,7 @@ class GPTBot:
                     event_type = event.source["content"]["msgtype"]
                 except KeyError:
                     self.logger.log(f"Could not process event: {event}", "debug")
-                    continue # This is most likely not a message event
+                    continue  # This is most likely not a message event
 
             if event_type.startswith("gptbot"):
                 messages.append(event)
@@ -1320,6 +1320,17 @@ class GPTBot:
 
             message = await self.send_message(room, response)
 
+        # Set room name
+
+        if self.generate_room_name and room.name == self.default_room_name:
+            try:
+                name = await self.generate_room_name(room)
+                await self.matrix_client.room_put_state(
+                    room.room_id, "m.room.name", {"name": name}, ""
+                )
+            except Exception as e:
+                self.logger.log(f"Error generating room name: {e}", "error")
+
         await self.matrix_client.room_typing(room.room_id, False)
 
     async def download_file(self, mxc) -> Optional[bytes]:
@@ -1339,6 +1350,48 @@ class GPTBot:
             return
 
         return download
+
+    async def generate_room_name(self, room: MatrixRoom | str) -> str:
+        """Generate a name for a room.
+
+        Args:
+            room (MatrixRoom | str): The room to generate a name for.
+
+        Returns:
+            str: The generated name.
+        """
+
+        if isinstance(room, MatrixRoom):
+            room = room.room_id
+
+        prompt = f"Generate a short, descriptive name for this conversation. It should start with '{self.default_room_name}:' and be no more than 50 characters long. Return only the name, without any additional text."
+
+        messages = await self._last_n_messages(room, 2)
+
+        chat_messages = [[{"role": "system", "content": prompt}]]
+
+        for message in messages:
+            if isinstance(message, (RoomMessageNotice, RoomMessageText)):
+                role = (
+                    "assistant"
+                    if message.sender == self.matrix_client.user_id
+                    else "user"
+                )
+                message_body = (
+                    message.body
+                    if not self.chat_api.supports_chat_images()
+                    else [{"type": "text", "text": message.body}]
+                )
+                chat_messages.append({"role": role, "content": message_body})
+
+        response, tokens_used = await self.chat_api.generate_chat_response(
+            chat_messages,
+            room=room,
+            allow_override=False,
+            use_tools=False,
+        )
+
+        return response
 
     def get_system_message(self, room: MatrixRoom | str) -> str:
         """Get the system message for a room.
