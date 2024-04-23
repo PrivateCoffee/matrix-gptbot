@@ -7,10 +7,11 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.8"
+version = "0.3.9.dev0"
 
 authors = [
   { name="Kumi Mitterer", email="gptbot@kumi.email" },
+  { name="Private.coffee Team", email="support@private.coffee" },
 ]
 
 description = "Multifunctional Chatbot for Matrix"
@@ -65,9 +66,9 @@ dev = [
 ]
 
 [project.urls]
-"Homepage" = "https://git.private.coffee/kumi/matrix-gptbot"
-"Bug Tracker" = "https://git.private.coffee/kumi/matrix-gptbot/issues"
-"Source Code" = "https://git.private.coffee/kumi/matrix-gptbot"
+"Homepage" = "https://git.private.coffee/privatecoffee/matrix-gptbot"
+"Bug Tracker" = "https://git.private.coffee/privatecoffee/matrix-gptbot/issues"
+"Source Code" = "https://git.private.coffee/privatecoffee/matrix-gptbot"
 
 [project.scripts]
 gptbot = "gptbot.__main__:main"

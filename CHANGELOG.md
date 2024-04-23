@@ -1,5 +1,7 @@
 # Changelog
 
+### 0.3.9 (unreleased)
+
 ### 0.3.7 / 0.3.8 (2024-04-15)
 
 * Changes to URLs in pyproject.toml
