@@ -11,10 +11,10 @@ jobs:
     container:
       image: node:20-bookworm
     steps:
-      - name: Install Docker
+      - name: Install dependencies
         run: |
           apt update
-          apt install -y docker.io
+          apt install -y docker.io build-essential libpython3-dev
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
