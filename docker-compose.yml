@@ -4,7 +4,7 @@ services:
   gptbot:
     build: .
     volumes:
-      - ./settings.ini:/app/settings.ini
+      - ./config.ini:/app/config.ini
 
   pantalaimon:
     image: matrixdotorg/pantalaimon
