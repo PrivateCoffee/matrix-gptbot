@@ -1,6 +1,6 @@
 # Changelog
 
-### 0.3.9 (unreleased)
+### 0.3.9 (2024-04-23)
 
 * Add Docker support for running the bot in a container
 * Add TrackingMore dependency to pyproject.toml
