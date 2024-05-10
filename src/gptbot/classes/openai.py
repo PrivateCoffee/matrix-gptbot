@@ -164,7 +164,7 @@ class OpenAI:
             if count > 5:
                 self.logger.log(f"Recursion depth exceeded, aborting.")
                 return await self.generate_chat_response(
-                    messsages=messages,
+                    messages=messages,
                     user=user,
                     room=room,
                     allow_override=False,  # TODO: Could this be a problem?
@@ -189,7 +189,7 @@ class OpenAI:
         if allow_override and not "gpt-3.5-turbo" in original_model:
             if self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False):
                 self.logger.log(f"Overriding chat model to use tools")
-                chat_model = "gpt-3.5-turbo-0125"
+                chat_model = "gpt-3.5-turbo"
 
                 out_messages = []
 
@@ -267,8 +267,19 @@ class OpenAI:
                 "OpenAI", "MaxTokens", fallback=4000
             )
 
+        api_url = self.base_url
+
+        if chat_model.startswith("gpt-"):
+            if not self.chat_model.startswith("gpt-"):
+                # The model is overridden, we have to ensure that OpenAI is used
+                if self.api_key.startswith("sk-"):
+                    self.openai_api.base_url = "https://api.openai.com/v1/"
+
         chat_partial = partial(self.openai_api.chat.completions.create, **kwargs)
         response = await self._request_with_retries(chat_partial)
+
+        # Setting back the API URL to whatever it was before
+        self.openai_api.base_url = api_url
 
         choice = response.choices[0]
         result_text = choice.message.content

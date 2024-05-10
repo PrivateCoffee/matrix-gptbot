@@ -17,7 +17,7 @@ def get_version():
         return None
     return package_version
 
-def main():
+async def main():
     # Parse command line arguments
     parser = ArgumentParser()
     parser.add_argument(
@@ -40,7 +40,7 @@ def main():
     config.read(args.config)
 
     # Create bot
-    bot, new_config = GPTBot.from_config(config)
+    bot, new_config = await GPTBot.from_config(config)
 
     # Update config with new values
     if new_config:
@@ -52,7 +52,7 @@ def main():
 
     # Start bot
     try:
-        asyncio.run(bot.run())
+        await bot.run()
     except KeyboardInterrupt:
         print("Received KeyboardInterrupt - exiting...")
     except SystemExit:
@@ -60,4 +60,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.get_event_loop().run_until_complete(main())

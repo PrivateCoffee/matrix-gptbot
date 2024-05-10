@@ -200,7 +200,7 @@ class GPTBot:
     USER_AGENT = "matrix-gptbot/dev (+https://kumig.it/kumitterer/matrix-gptbot)"
 
     @classmethod
-    def from_config(cls, config: ConfigParser):
+    async def from_config(cls, config: ConfigParser):
         """Create a new GPTBot instance from a config file.
 
         Args:
@@ -381,7 +381,12 @@ class GPTBot:
             self.default_system_message if system_message is None else system_message
         )
 
-        encoding = tiktoken.encoding_for_model(model)
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except:
+            # TODO: Handle this more gracefully
+            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+
         total_tokens = 0
 
         system_message_tokens = (
