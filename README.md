@@ -86,14 +86,9 @@ file attachments, especially in rooms that are not encrypted, if the same
 user also uses the bot in encrypted rooms.
 
 The bot itself does not implement end-to-end encryption. However, it can be
-used in conjunction with [pantalaimon](https://github.com/matrix-org/pantalaimon),
-which is actually installed as a dependency of the bot.
+used in conjunction with [pantalaimon](https://github.com/matrix-org/pantalaimon).
 
-To use pantalaimon, create a `pantalaimon.conf` following the example in
-`pantalaimon.example.conf`, making sure to change the homeserver URL to match
-your homeserver. Then, start pantalaimon with `pantalaimon -c pantalaimon.conf`.
-
-You first have to log in to your homeserver using `python pantalaimon_first_login.py`,
+You first have to log in to your homeserver using `python fetch_access_token.py`,
 and can then use the returned access token in your bot's `config.ini` file.
 
 Make sure to also point the bot to your pantalaimon instance by setting
