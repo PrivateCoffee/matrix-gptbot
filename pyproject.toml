@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "matrix-nio[e2e]",
+    "matrix-nio[e2e]>=0.24.0",
     "markdown2[all]",
     "tiktoken",
     "python-magic",
