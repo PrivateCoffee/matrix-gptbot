@@ -17,6 +17,10 @@ class Weather(BaseTool):
                 "type": "string",
                 "description": "The longitude of the location.",
             },
+            "name": {
+                "type": "string",
+                "description": "A location name to include in the report. This is optional, latitude and longitude are always required."
+            }
         },
         "required": ["latitude", "longitude"],
     }
@@ -25,6 +29,8 @@ class Weather(BaseTool):
         """Get weather information for a given location."""
         if not (latitude := self.kwargs.get("latitude")) or not (longitude := self.kwargs.get("longitude")):
             raise Exception('No location provided.')
+
+        name = self.kwargs.get("name")
 
         weather_api_key = self.bot.config.get("OpenWeatherMap", "APIKey")
 
@@ -37,7 +43,7 @@ class Weather(BaseTool):
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
-                    return f"""**Weather report**
+                    return f"""**Weather report{f" for {name}" if name else ""}**
 Current: {data['current']['temp']}°C, {data['current']['weather'][0]['description']}
 Feels like: {data['current']['feels_like']}°C
 Humidity: {data['current']['humidity']}%
