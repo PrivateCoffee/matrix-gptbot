@@ -493,6 +493,9 @@ class OpenAI:
                 model=original_model,
             )
 
+        if not result_text:
+            self.logger.log(f"Received an empty response from the OpenAI endpoint.", "debug")
+
         try:
             tokens_used = response.usage.total_tokens
         except:
