@@ -1,6 +1,7 @@
 # GPTbot
 
 [![Support Private.coffee!](https://shields.private.coffee/badge/private.coffee-support%20us!-pink?logo=coffeescript)](https://private.coffee)
+[![Matrix](https://shields.private.coffee/badge/Matrix-join%20us!-blue?logo=matrix)](https://matrix.to/#/#matrix-gptbot:private.coffee)
 
 GPTbot is a simple bot that uses different APIs to generate responses to
 messages in a Matrix room.
@@ -9,8 +10,8 @@ messages in a Matrix room.
 
 - AI-generated responses to text, image and voice messages in a Matrix room
   (chatbot)
-  - Currently supports OpenAI (`gpt-3.5-turbo` and `gpt-4`, including vision
-    preview, `whisper` and `tts`)
+  - Currently supports OpenAI (`gpt-3.5-turbo` and `gpt-4`, `gpt-4o`, `whisper`
+    and `tts`) and compatible APIs (e.g. `ollama`)
   - Able to generate pictures using OpenAI `dall-e-2`/`dall-e-3` models
   - Able to browse the web to find information
   - Able to use OpenWeatherMap to get weather information (requires separate
@@ -25,7 +26,7 @@ messages in a Matrix room.
 
 To run the bot, you will need Python 3.10 or newer.
 
-The bot has been tested with Python 3.11 on Arch, but should work with any
+The bot has been tested with Python 3.12 on Arch, but should work with any
 current version, and should not require any special dependencies or operating
 system features.
 
@@ -217,10 +218,12 @@ Note that this currently only works for audio messages and .mp3 file uploads.
 First of all, make sure that the bot is actually running. (Okay, that's not
 really troubleshooting, but it's a good start.)
 
-If the bot is running, check the logs. The first few lines should contain
-"Starting bot...", "Syncing..." and "Bot started". If you don't see these
-lines, something went wrong during startup. Fortunately, the logs should
-contain more information about what went wrong.
+If the bot is running, check the logs, these should tell you what is going on.
+For example, if the bot is showing an error message like "Timed out, retrying",
+it is unable to reach your homeserver. In this case, check your homeserver URL
+and make sure that the bot can reach it. If you are using Pantalaimon, make
+sure that the bot is pointed to Pantalaimon and not directly to your 
+homeserver, and that Pantalaimon is running and reachable.
 
 If you need help figuring out what went wrong, feel free to open an issue.
 

@@ -553,12 +553,30 @@ class GPTBot:
         return (
             (
                 user_id in self.allowed_users
-                or f"*:{user_id.split(':')[1]}" in self.allowed_users
-                or f"@*:{user_id.split(':')[1]}" in self.allowed_users
+                or (
+                    (
+                        f"*:{user_id.split(':')[1]}" in self.allowed_users
+                        or f"@*:{user_id.split(':')[1]}" in self.allowed_users
+                    )
+                    if not user_id.startswith("!") or user_id.startswith("#")
+                    else False
+                )
             )
             if self.allowed_users
             else True
         )
+
+    def room_is_allowed(self, room_id: str) -> bool:
+        """Check if everyone in a room is allowed to use the bot.
+
+        Args:
+            room_id (str): The room ID to check.
+
+        Returns:
+            bool: Whether everyone in the room is allowed to use the bot.
+        """
+        # TODO: Handle published aliases
+        return self.user_is_allowed(room_id)
 
     async def event_callback(self, room: MatrixRoom, event: Event):
         """Callback for events.
@@ -571,7 +589,9 @@ class GPTBot:
         if event.sender == self.matrix_client.user_id:
             return
 
-        if not self.user_is_allowed(event.sender):
+        if not (
+            self.user_is_allowed(event.sender) or self.room_is_allowed(room.room_id)
+        ):
             if len(room.users) == 2:
                 await self.matrix_client.room_send(
                     room.room_id,
