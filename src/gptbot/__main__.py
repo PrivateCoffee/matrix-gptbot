@@ -7,15 +7,18 @@ import signal
 import asyncio
 import importlib.metadata
 
+
 def sigterm_handler(_signo, _stack_frame):
     exit()
+
 
 def get_version():
     try:
         package_version = importlib.metadata.version("matrix_gptbot")
-    except pkg_resources.DistributionNotFound:
+    except Exception:
         return None
     return package_version
+
 
 async def main():
     # Parse command line arguments
@@ -59,5 +62,9 @@ async def main():
         print("Received SIGTERM - exiting...")
 
 
+def main_sync():
+    asyncio.run(main())
+
+
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main())
+    main_sync()
