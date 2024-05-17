@@ -1,5 +1,10 @@
 # Changelog
 
+### 0.3.12 (2024-05-17)
+
+- Added `ForceVision` to OpenAI configuration to allow third-party models to be used for image recognition
+- Added some missing properties to `OpenAI` class
+
 ### 0.3.11 (2024-05-17)
 
 - Refactoring of AI provider handling in preparation for multiple AI providers: Introduced a `BaseAI` class that all AI providers must inherit from

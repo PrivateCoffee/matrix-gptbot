@@ -90,12 +90,28 @@ class OpenAI(BaseAI):
         return self._config.getfloat("PresencePenalty", fallback=0.0)
 
     @property
+    def force_vision(self):
+        return self._config.getboolean("ForceVision", fallback=False)
+
+    @property
+    def force_tools(self):
+        return self._config.getboolean("ForceTools", fallback=False)
+
+    @property
+    def emulate_tools(self):
+        return self._config.getboolean("EmulateTools", fallback=False)
+
+    @property
     def max_tokens(self):
         # TODO: This should be model-specific
         return self._config.getint("MaxTokens", fallback=4000)
 
     def supports_chat_images(self):
-        return "vision" in self.chat_model or self.chat_model in ("gpt-4o",)
+        return (
+            "vision" in self.chat_model
+            or self.chat_model in ("gpt-4o",)
+            or self.force_vision
+        )
 
     def json_decode(self, data):
         if data.startswith("```json\n"):
@@ -180,7 +196,7 @@ class OpenAI(BaseAI):
 
         # TODO: I believe more models support tools now, so this could be adapted
         if allow_override and "gpt-3.5-turbo" not in original_model:
-            if self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False):
+            if self.force_tools:
                 self.logger.log("Overriding chat model to use tools")
                 chat_model = "gpt-3.5-turbo"
 
@@ -207,10 +223,10 @@ class OpenAI(BaseAI):
 
         if (
             use_tools
-            and self.bot.config.getboolean("OpenAI", "EmulateTools", fallback=False)
-            and not self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False)
+            and self.emulate_tools
+            and not self.force_tools
             and "gpt-3.5-turbo" not in chat_model
-        ):
+        ):  # TODO: This should be adapted to use tools with more models
             self.bot.logger.log("Using tool emulation mode.", "debug")
 
             messages = (
