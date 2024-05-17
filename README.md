@@ -74,7 +74,7 @@ sqlite3 database.db "SELECT 1"
 # Optionally, create Pantalaimon config
 cp contrib/pantalaimon.example.conf pantalaimon.conf
 # Edit the Pantalaimon config file to your needs
-# Update your homeserver URL in the bot's config.ini to point to Pantalaimon (probably http://pantalaimon:8010 if you used the provided example config)
+# Update your homeserver URL in the bot's config.ini to point to Pantalaimon (probably http://pantalaimon:8009 if you used the provided example config)
 # You can use `fetch_access_token.py` to get an access token for the bot
 
 # Start the bot
