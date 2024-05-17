@@ -1,4 +1,4 @@
-from nio import RoomMemberEvent, MatrixRoom, KeysUploadError
+from nio import RoomMemberEvent, MatrixRoom
 
 async def roommember_callback(room: MatrixRoom, event: RoomMemberEvent, bot):
     if event.membership == "leave":

@@ -13,7 +13,7 @@ async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
 
     if isinstance(new_room, RoomCreateError):
         bot.logger.log(f"Failed to create room: {new_room.message}")
-        await bot.send_message(room, f"Sorry, I was unable to create a new room. Please try again later, or create a room manually.", True)
+        await bot.send_message(room, "Sorry, I was unable to create a new room. Please try again later, or create a room manually.", True)
         return
 
     bot.logger.log(f"Inviting {event.sender} to new room...")
@@ -21,7 +21,7 @@ async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
 
     if isinstance(invite, RoomInviteError):
         bot.logger.log(f"Failed to invite user: {invite.message}")
-        await bot.send_message(room, f"Sorry, I was unable to invite you to the new room. Please try again later, or create a room manually.", True)
+        await bot.send_message(room, "Sorry, I was unable to invite you to the new room. Please try again later, or create a room manually.", True)
         return
 
     with closing(bot.database.cursor()) as cursor:
@@ -43,4 +43,4 @@ async def command_newroom(room: MatrixRoom, event: RoomMessageText, bot):
 
     await bot.matrix_client.joined_rooms()
     await bot.send_message(room, f"Alright, I've created a new room called '{room_name}' and invited you to it. You can find it at {new_room.room_id}", True)
-    await bot.send_message(bot.matrix_client.rooms[new_room.room_id], f"Welcome to the new room! What can I do for you?")
+    await bot.send_message(bot.matrix_client.rooms[new_room.room_id], "Welcome to the new room! What can I do for you?")

@@ -1,4 +1,4 @@
-from .base import BaseTool, Handover
+from .base import BaseTool
 
 class Imagedescription(BaseTool):
     DESCRIPTION = "Describe the content of the images in the conversation."

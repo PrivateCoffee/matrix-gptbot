@@ -1,9 +1,8 @@
 import trackingmore
-import requests
 
 from .logging import Logger
 
-from typing import Dict, List, Tuple, Generator, Optional
+from typing import Tuple, Optional
 
 class TrackingMore:
     api_key: str

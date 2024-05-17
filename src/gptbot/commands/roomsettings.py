@@ -114,7 +114,7 @@ async def command_roomsettings(room: MatrixRoom, event: RoomMessageText, bot):
         await bot.send_message(room, f"The current chat model is: '{value}'.", True)
         return
 
-    message = f"""The following settings are available:
+    message = """The following settings are available:
 
 - system_message [message]: Get or set the system message to be sent to the chat model
 - classification [true/false]: Get or set whether the room uses classification

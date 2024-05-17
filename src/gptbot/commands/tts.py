@@ -15,7 +15,7 @@ async def command_tts(room: MatrixRoom, event: RoomMessageText, bot):
             await bot.send_message(room, "Sorry, I couldn't generate an audio file. Please try again later.", True)
             return
 
-        bot.logger.log(f"Sending audio file...")
+        bot.logger.log("Sending audio file...")
         await bot.send_file(room, content, "audio.mp3", "audio/mpeg", "m.audio")
 
         return

@@ -3,7 +3,7 @@ import requests
 
 from .logging import Logger
 
-from typing import Dict, List, Tuple, Generator, Optional
+from typing import Generator, Optional
 
 class WolframAlpha:
     api_key: str

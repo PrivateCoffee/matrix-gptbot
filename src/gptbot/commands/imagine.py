@@ -16,7 +16,7 @@ async def command_imagine(room: MatrixRoom, event: RoomMessageText, bot):
             return
 
         for image in images:
-            bot.logger.log(f"Sending image...")
+            bot.logger.log("Sending image...")
             await bot.send_image(room, image)
 
         bot.log_api_usage(event, room, f"{bot.image_api.api_code}-{bot.image_api.image_model}", tokens_used)
