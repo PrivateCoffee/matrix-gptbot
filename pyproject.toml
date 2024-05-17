@@ -10,46 +10,38 @@ name = "matrix-gptbot"
 version = "0.3.12"
 
 authors = [
-  { name="Kumi Mitterer", email="gptbot@kumi.email" },
-  { name="Private.coffee Team", email="support@private.coffee" },
+  { name = "Kumi Mitterer", email = "gptbot@kumi.email" },
+  { name = "Private.coffee Team", email = "support@private.coffee" },
 ]
 
 description = "Multifunctional Chatbot for Matrix"
 readme = "README.md"
-license = { file="LICENSE" }
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 
-packages = [
-    "src/gptbot"
-]
+packages = ["src/gptbot"]
 
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
 ]
 
 dependencies = [
-    "matrix-nio[e2e]>=0.24.0",
-    "markdown2[all]",
-    "tiktoken",
-    "python-magic",
-    "pillow",
-    ]
+  "matrix-nio[e2e]>=0.24.0",
+  "markdown2[all]",
+  "tiktoken",
+  "python-magic",
+  "pillow",
+  "future>=1.0.0",
+]
 
 [project.optional-dependencies]
-openai = [
-    "openai>=1.2",
-    "pydub",
-]
+openai = ["openai>=1.2", "pydub"]
 
-wolframalpha = [
-    "wolframalpha",
-]
+wolframalpha = ["wolframalpha"]
 
-trackingmore = [
-    "trackingmore-api-tool",
-]
+trackingmore = ["trackingmore-api-tool"]
 
 all = [
   "matrix-gptbot[openai,wolframalpha,trackingmore]",
@@ -57,14 +49,7 @@ all = [
   "beautifulsoup4",
 ]
 
-dev = [
-  "matrix-gptbot[all]",
-  "black",
-  "hatchling",
-  "twine",
-  "build",
-  "ruff",
-]
+dev = ["matrix-gptbot[all]", "black", "hatchling", "twine", "build", "ruff"]
 
 [project.urls]
 "Homepage" = "https://git.private.coffee/privatecoffee/matrix-gptbot"
