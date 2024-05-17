@@ -37,7 +37,7 @@ system features.
 The recommended way to install the bot is to use pip to install it from PyPI.
 
 ```shell
-# If desired, activate a venv first
+# Recommended: activate a venv first
 
 python -m venv venv
 . venv/bin/activate
