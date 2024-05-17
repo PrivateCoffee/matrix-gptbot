@@ -2,6 +2,10 @@
 
 [![Support Private.coffee!](https://shields.private.coffee/badge/private.coffee-support%20us!-pink?logo=coffeescript)](https://private.coffee)
 [![Matrix](https://shields.private.coffee/badge/Matrix-join%20us!-blue?logo=matrix)](https://matrix.to/#/#matrix-gptbot:private.coffee)
+[![PyPI](https://shields.private.coffee/pypi/v/matrix-gptbot)](https://pypi.org/project/matrix-gptbot/)
+[![PyPI - Python Version](https://shields.private.coffee/pypi/pyversions/matrix-gptbot)](https://pypi.org/project/matrix-gptbot/)
+[![PyPI - License](https://shields.private.coffee/pypi/l/matrix-gptbot)](https://pypi.org/project/matrix-gptbot/)
+[![Latest Git Commit](https://shields.private.coffee/gitea/last-commit/privatecoffee/matrix-gptbot?gitea_url=https://git.private.coffee)](https://git.private.coffee/privatecoffee/matrix-gptbot)
 
 GPTbot is a simple bot that uses different APIs to generate responses to
 messages in a Matrix room.
