@@ -1,5 +1,17 @@
 # Changelog
 
+### 0.3.11 (2024-05-17)
+
+- Refactoring of AI provider handling in preparation for multiple AI providers: Introduced a `BaseAI` class that all AI providers must inherit from
+- Added support for temperature, top_p, frequency_penalty, and presence_penalty in `AllowedUsers`
+- Introduced ruff as a development dependency for linting and applied some linting fixes
+- Fixed `gptbot` command line tool
+- Changed default chat model to `gpt-4o`
+- Changed default image generation model to `dall-e-3`
+- Removed currently unused sections from `config.dist.ini`
+- Changed provided Pantalaimon config file to not use a key ring by default
+- Prevent bot from crashing when an unneeded dependency is missing
+
 ### 0.3.10 (2024-05-16)
 
 - Add support for specifying room IDs in `AllowedUsers`

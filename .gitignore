@@ -8,3 +8,4 @@ __pycache__/
 *.bak
 dist/
 pantalaimon.conf
+.ruff_cache/

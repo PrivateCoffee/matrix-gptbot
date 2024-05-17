@@ -1,7 +1,6 @@
 import markdown2
 import tiktoken
 import asyncio
-import functools
 
 from PIL import Image
 
@@ -15,8 +14,6 @@ from nio import (
     MatrixRoom,
     Api,
     RoomMessagesError,
-    GroupEncryptionError,
-    EncryptionError,
     RoomMessageText,
     RoomSendResponse,
     SyncResponse,
@@ -31,15 +28,12 @@ from nio import (
     RoomMessageFile,
     RoomMessageAudio,
     DownloadError,
-    DownloadResponse,
-    ToDeviceEvent,
-    ToDeviceError,
     RoomGetStateError,
 )
 from nio.store import SqliteStore
 
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from configparser import ConfigParser
 from datetime import datetime
 from io import BytesIO
@@ -50,21 +44,14 @@ import base64
 import uuid
 import traceback
 import json
-import importlib.util
-import sys
 import sqlite3
-import traceback
 
 from .logging import Logger
 from ..migrations import migrate
 from ..callbacks import RESPONSE_CALLBACKS, EVENT_CALLBACKS
 from ..commands import COMMANDS
 from ..tools import TOOLS, Handover, StopProcessing
-
-# TODO: Make these optional based on config
-from .openai import OpenAI
-from .wolframalpha import WolframAlpha
-from .trackingmore import TrackingMore
+from .ai.base import BaseAI
 
 
 class GPTBot:
@@ -74,12 +61,13 @@ class GPTBot:
     matrix_client: Optional[AsyncClient] = None
     sync_token: Optional[str] = None
     logger: Optional[Logger] = Logger()
-    chat_api: Optional[OpenAI] = None
-    image_api: Optional[OpenAI] = None
-    classification_api: Optional[OpenAI] = None
-    tts_api: Optional[OpenAI] = None
-    stt_api: Optional[OpenAI] = None
-    parcel_api: Optional[TrackingMore] = None
+    chat_api: Optional[BaseAI] = None
+    image_api: Optional[BaseAI] = None
+    classification_api: Optional[BaseAI] = None
+    tts_api: Optional[BaseAI] = None
+    stt_api: Optional[BaseAI] = None
+    parcel_api: Optional[Any] = None
+    calculation_api: Optional[Any] = None
     room_ignore_list: List[str] = []  # List of rooms to ignore invites from
     logo: Optional[Image.Image] = None
     logo_uri: Optional[str] = None
@@ -96,7 +84,7 @@ class GPTBot:
         """
         try:
             return json.loads(self.config["GPTBot"]["AllowedUsers"])
-        except:
+        except Exception:
             return []
 
     @property
@@ -232,34 +220,41 @@ class GPTBot:
             if Path(bot.logo_path).exists() and Path(bot.logo_path).is_file():
                 bot.logo = Image.open(bot.logo_path)
 
-        bot.chat_api = bot.image_api = bot.classification_api = bot.tts_api = (
-            bot.stt_api
-        ) = OpenAI(
-            bot=bot,
-            api_key=config["OpenAI"]["APIKey"],
-            chat_model=config["OpenAI"].get("Model"),
-            image_model=config["OpenAI"].get("ImageModel"),
-            tts_model=config["OpenAI"].get("TTSModel"),
-            stt_model=config["OpenAI"].get("STTModel"),
-            base_url=config["OpenAI"].get("BaseURL"),
-        )
+        # Set up OpenAI
+        assert (
+            "OpenAI" in config
+        ), "OpenAI config not found"  # TODO: Update this to support other providers
 
-        if "BaseURL" in config["OpenAI"]:
-            bot.chat_api.base_url = config["OpenAI"]["BaseURL"]
-            bot.image_api = None
+        from .ai.openai import OpenAI
+
+        openai_api = OpenAI(bot=bot, config=config["OpenAI"])
+
+        if "Model" in config["OpenAI"]:
+            bot.chat_api = openai_api
+            bot.classification_api = openai_api
+
+        if "ImageModel" in config["OpenAI"]:
+            bot.image_api = openai_api
+
+        if "TTSModel" in config["OpenAI"]:
+            bot.tts_api = openai_api
+
+        if "STTModel" in config["OpenAI"]:
+            bot.stt_api = openai_api
 
         # Set up WolframAlpha
         if "WolframAlpha" in config:
+            from .wolframalpha import WolframAlpha
             bot.calculation_api = WolframAlpha(
                 config["WolframAlpha"]["APIKey"], bot.logger
             )
 
         # Set up TrackingMore
         if "TrackingMore" in config:
+            from .trackingmore import TrackingMore
             bot.parcel_api = TrackingMore(config["TrackingMore"]["APIKey"], bot.logger)
 
         # Set up the Matrix client
-
         assert "Matrix" in config, "Matrix config not found"
 
         homeserver = config["Matrix"]["Homeserver"]
@@ -339,7 +334,10 @@ class GPTBot:
                 try:
                     event_type = event.source["content"]["msgtype"]
                 except KeyError:
-                    self.logger.log(f"Could not process event: {event}", "debug")
+                    if event.__class__.__name__ in ("RoomMemberEvent", ):
+                        self.logger.log(f"Ignoring event of type {event.__class__.__name__}", "debug")
+                        continue
+                    self.logger.log(f"Could not process event: {event}", "warning")
                     continue  # This is most likely not a message event
 
             if event_type.startswith("gptbot"):
@@ -475,7 +473,7 @@ class GPTBot:
         except (Handover, StopProcessing):
             raise
 
-        except KeyError as e:
+        except KeyError:
             self.logger.log(f"Tool {tool} not found", "error")
             return "Error: Tool not found"
 

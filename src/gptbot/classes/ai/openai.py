@@ -1,21 +1,18 @@
 import openai
 import requests
-import tiktoken
 
-import asyncio
 import json
-import base64
 import inspect
 
 from functools import partial
-from contextlib import closing
-from typing import Dict, List, Tuple, Generator, AsyncGenerator, Optional, Any
+from typing import Dict, List, Tuple, Generator, Optional, Mapping
 from io import BytesIO
 
 from pydub import AudioSegment
 
-from .logging import Logger
-from ..tools import TOOLS, Handover, StopProcessing
+from ..logging import Logger
+from ...tools import TOOLS, Handover, StopProcessing
+from .base import BaseAI, AttributeDictionary
 
 ASSISTANT_CODE_INTERPRETER = [
     {
@@ -24,58 +21,81 @@ ASSISTANT_CODE_INTERPRETER = [
 ]
 
 
-class AttributeDictionary(dict):
-    def __init__(self, *args, **kwargs):
-        super(AttributeDictionary, self).__init__(*args, **kwargs)
-        self.__dict__ = self
-
-
-class OpenAI:
-    api_key: str
-    chat_model: str = "gpt-3.5-turbo"
-    logger: Logger
-
+class OpenAI(BaseAI):
     api_code: str = "openai"
 
     @property
     def chat_api(self) -> str:
         return self.chat_model
 
-    classification_api = chat_api
-    image_model: str = "dall-e-2"
-    tts_model: str = "tts-1-hd"
-    tts_voice: str = "alloy"
-    stt_model: str = "whisper-1"
+    openai_api: openai.AsyncOpenAI
 
     operator: str = "OpenAI ([https://openai.com](https://openai.com))"
 
     def __init__(
         self,
         bot,
-        api_key,
-        chat_model=None,
-        image_model=None,
-        tts_model=None,
-        tts_voice=None,
-        stt_model=None,
-        base_url=None,
-        logger=None,
+        config: Mapping,
+        logger: Optional[Logger] = None,
     ):
-        self.bot = bot
-        self.api_key = api_key
-        self.chat_model = chat_model or self.chat_model
-        self.image_model = image_model or self.image_model
-        self.logger = logger or bot.logger or Logger()
-        self.base_url = base_url or openai.base_url
+        super().__init__(bot, config, logger)
         self.openai_api = openai.AsyncOpenAI(
             api_key=self.api_key, base_url=self.base_url
         )
-        self.tts_model = tts_model or self.tts_model
-        self.tts_voice = tts_voice or self.tts_voice
-        self.stt_model = stt_model or self.stt_model
+
+    # TODO: Add descriptions for these properties
+
+    @property
+    def api_key(self):
+        return self._config["APIKey"]
+
+    @property
+    def chat_model(self):
+        return self._config.get("Model", fallback="gpt-4o")
+
+    @property
+    def image_model(self):
+        return self._config.get("ImageModel", fallback="dall-e-3")
+
+    @property
+    def tts_model(self):
+        return self._config.get("TTSModel", fallback="tts-1-hd")
+
+    @property
+    def tts_voice(self):
+        return self._config.get("TTSVoice", fallback="alloy")
+
+    @property
+    def stt_model(self):
+        return self._config.get("STTModel", fallback="whisper-1")
+
+    @property
+    def base_url(self):
+        return self._config.get("BaseURL", fallback="https://api.openai.com/v1/")
+
+    @property
+    def temperature(self):
+        return self._config.getfloat("Temperature", fallback=1.0)
+
+    @property
+    def top_p(self):
+        return self._config.getfloat("TopP", fallback=1.0)
+
+    @property
+    def frequency_penalty(self):
+        return self._config.getfloat("FrequencyPenalty", fallback=0.0)
+
+    @property
+    def presence_penalty(self):
+        return self._config.getfloat("PresencePenalty", fallback=0.0)
+
+    @property
+    def max_tokens(self):
+        # TODO: This should be model-specific
+        return self._config.getint("MaxTokens", fallback=4000)
 
     def supports_chat_images(self):
-        return "vision" in self.chat_model
+        return "vision" in self.chat_model or self.chat_model in ("gpt-4o",)
 
     def json_decode(self, data):
         if data.startswith("```json\n"):
@@ -88,36 +108,8 @@ class OpenAI:
 
         try:
             return json.loads(data)
-        except:
+        except Exception:
             return False
-
-    async def _request_with_retries(
-        self, request: partial, attempts: int = 5, retry_interval: int = 2
-    ) -> AsyncGenerator[Any | list | Dict, None]:
-        """Retry a request a set number of times if it fails.
-
-        Args:
-            request (partial): The request to make with retries.
-            attempts (int, optional): The number of attempts to make. Defaults to 5.
-            retry_interval (int, optional): The interval in seconds between attempts. Defaults to 2 seconds.
-
-        Returns:
-            AsyncGenerator[Any | list | Dict, None]: The OpenAI response for the request.
-        """
-        # call the request function and return the response if it succeeds, else retry
-        current_attempt = 1
-        while current_attempt <= attempts:
-            try:
-                response = await request()
-                return response
-            except Exception as e:
-                self.logger.log(f"Request failed: {e}", "error")
-                self.logger.log(f"Retrying in {retry_interval} seconds...")
-                await asyncio.sleep(retry_interval)
-                current_attempt += 1
-
-        # if all attempts failed, raise an exception
-        raise Exception("Request failed after all attempts.")
 
     async def generate_chat_response(
         self,
@@ -162,7 +154,7 @@ class OpenAI:
             )
 
             if count > 5:
-                self.logger.log(f"Recursion depth exceeded, aborting.")
+                self.logger.log("Recursion depth exceeded, aborting.")
                 return await self.generate_chat_response(
                     messages=messages,
                     user=user,
@@ -186,9 +178,10 @@ class OpenAI:
 
         original_messages = messages
 
-        if allow_override and not "gpt-3.5-turbo" in original_model:
+        # TODO: I believe more models support tools now, so this could be adapted
+        if allow_override and "gpt-3.5-turbo" not in original_model:
             if self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False):
-                self.logger.log(f"Overriding chat model to use tools")
+                self.logger.log("Overriding chat model to use tools")
                 chat_model = "gpt-3.5-turbo"
 
                 out_messages = []
@@ -216,7 +209,7 @@ class OpenAI:
             use_tools
             and self.bot.config.getboolean("OpenAI", "EmulateTools", fallback=False)
             and not self.bot.config.getboolean("OpenAI", "ForceTools", fallback=False)
-            and not "gpt-3.5-turbo" in chat_model
+            and "gpt-3.5-turbo" not in chat_model
         ):
             self.bot.logger.log("Using tool emulation mode.", "debug")
 
@@ -257,15 +250,17 @@ class OpenAI:
             "model": chat_model,
             "messages": messages,
             "user": room,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "frequency_penalty": self.frequency_penalty,
+            "presence_penalty": self.presence_penalty,
         }
 
         if "gpt-3.5-turbo" in chat_model and use_tools:
             kwargs["tools"] = tools
 
         if "gpt-4" in chat_model:
-            kwargs["max_tokens"] = self.bot.config.getint(
-                "OpenAI", "MaxTokens", fallback=4000
-            )
+            kwargs["max_tokens"] = self.max_tokens
 
         api_url = self.base_url
 
@@ -295,7 +290,7 @@ class OpenAI:
                     tool_response = await self.bot.call_tool(
                         tool_call, room=room, user=user
                     )
-                    if tool_response != False:
+                    if tool_response is not False:
                         tool_responses.append(
                             {
                                 "role": "tool",
@@ -316,7 +311,7 @@ class OpenAI:
                     )
 
             if not tool_responses:
-                self.logger.log(f"No more responses received, aborting.")
+                self.logger.log("No more responses received, aborting.")
                 result_text = False
             else:
                 try:
@@ -332,7 +327,7 @@ class OpenAI:
                 except openai.APIError as e:
                     if e.code == "max_tokens":
                         self.logger.log(
-                            f"Max tokens exceeded, falling back to no-tools response."
+                            "Max tokens exceeded, falling back to no-tools response."
                         )
                         try:
                             new_messages = []
@@ -381,7 +376,6 @@ class OpenAI:
         elif isinstance((tool_object := self.json_decode(result_text)), dict):
             if "tool" in tool_object:
                 tool_name = tool_object["tool"]
-                tool_class = TOOLS[tool_name]
                 tool_parameters = (
                     tool_object["parameters"] if "parameters" in tool_object else {}
                 )
@@ -405,7 +399,7 @@ class OpenAI:
                     tool_response = await self.bot.call_tool(
                         tool_call, room=room, user=user
                     )
-                    if tool_response != False:
+                    if tool_response is not False:
                         tool_responses = [
                             {
                                 "role": "system",
@@ -425,7 +419,7 @@ class OpenAI:
                     )
 
                 if not tool_responses:
-                    self.logger.log(f"No response received, aborting.")
+                    self.logger.log("No response received, aborting.")
                     result_text = False
                 else:
                     try:
@@ -494,11 +488,13 @@ class OpenAI:
             )
 
         if not result_text:
-            self.logger.log(f"Received an empty response from the OpenAI endpoint.", "debug")
+            self.logger.log(
+                "Received an empty response from the OpenAI endpoint.", "debug"
+            )
 
         try:
             tokens_used = response.usage.total_tokens
-        except:
+        except Exception:
             tokens_used = 0
 
         self.logger.log(f"Generated response with {tokens_used} tokens.")
@@ -580,7 +576,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         Returns:
             Tuple[str, int]: The text and the number of tokens used.
         """
-        self.logger.log(f"Generating text from speech...")
+        self.logger.log("Generating text from speech...")
 
         audio_file = BytesIO()
         AudioSegment.from_file(BytesIO(audio)).export(audio_file, format="mp3")
@@ -667,18 +663,20 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
         Returns:
             Tuple[str, int]: The description and the number of tokens used.
         """
-        self.logger.log(f"Generating description for images in conversation...")
+        self.logger.log("Generating description for images in conversation...")
 
         system_message = "You are an image description generator. You generate descriptions for all images in the current conversation, one after another."
 
         messages = [{"role": "system", "content": system_message}] + messages[1:]
 
-        if not "vision" in (chat_model := self.chat_model):
-            chat_model = self.chat_model + "gpt-4-vision-preview"
+        if "vision" not in (chat_model := self.chat_model) and chat_model not in (
+            "gpt-4o",
+        ):
+            chat_model = "gpt-4o"
 
         chat_partial = partial(
             self.openai_api.chat.completions.create,
-            model=self.chat_model,
+            model=chat_model,
             messages=messages,
             user=str(user),
         )

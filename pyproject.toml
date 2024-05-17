@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.10"
+version = "0.3.11"
 
 authors = [
   { name="Kumi Mitterer", email="gptbot@kumi.email" },
@@ -63,6 +63,7 @@ dev = [
   "hatchling",
   "twine",
   "build",
+  "ruff",
 ]
 
 [project.urls]
@@ -71,7 +72,7 @@ dev = [
 "Source Code" = "https://git.private.coffee/privatecoffee/matrix-gptbot"
 
 [project.scripts]
-gptbot = "gptbot.__main__:main"
+gptbot = "gptbot.__main__:main_sync"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gptbot"]
