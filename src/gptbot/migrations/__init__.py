@@ -22,7 +22,7 @@ def get_version(db: SQLiteConnection) -> int:
 
     try:
         return int(db.execute("SELECT MAX(id) FROM migrations").fetchone()[0])
-    except:
+    except Exception:
         return 0
 
 def migrate(db: SQLiteConnection, from_version: Optional[int] = None, to_version: Optional[int] = None) -> None:
