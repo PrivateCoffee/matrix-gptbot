@@ -8,12 +8,12 @@ async def join_callback(response, bot):
 
     with closing(bot.database.cursor()) as cursor:
         cursor.execute(
-            "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (event.sender,))
+            "SELECT space_id FROM user_spaces WHERE user_id = ? AND active = TRUE", (response.sender,))
         space = cursor.fetchone()
 
     if space:
         bot.logger.log(f"Adding new room to space {space[0]}...")
-        await bot.add_rooms_to_space(space[0], [new_room.room_id])
+        await bot.add_rooms_to_space(space[0], [response.room_id])
 
     bot.matrix_client.keys_upload()
 
