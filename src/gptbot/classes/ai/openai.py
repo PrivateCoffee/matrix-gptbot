@@ -549,7 +549,7 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         try:
             result = json.loads(response.choices[0].message["content"])
-        except:
+        except Exception:
             result = {"type": "chat", "prompt": query}
 
         tokens_used = response.usage["total_tokens"]
