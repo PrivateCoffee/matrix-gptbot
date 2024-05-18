@@ -120,7 +120,7 @@ async def command_space(room: MatrixRoom, event: RoomMessageText, bot):
 
             if isinstance(response, RoomInviteError):
                 bot.logger.log(
-                    f"Failed to invite user {user} to space {space}", "error")
+                    f"Failed to invite user {event.sender} to space {space}", "error")
                 await bot.send_message(
                     room, "Sorry, I couldn't invite you to the space. Please try again later.", True)
                 return
