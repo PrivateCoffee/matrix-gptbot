@@ -47,7 +47,7 @@ class Newroom(BaseTool):
             await self.bot.add_rooms_to_space(space[0], [new_room.room_id])
 
         if self.bot.logo_uri:
-            await self.bot.matrix_client.room_put_state(room, "m.room.avatar", {
+            await self.bot.matrix_client.room_put_state(new_room, "m.room.avatar", {
                 "url": self.bot.logo_uri
             }, "")
 
