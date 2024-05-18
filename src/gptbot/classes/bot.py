@@ -245,6 +245,7 @@ class GPTBot:
         # Set up WolframAlpha
         if "WolframAlpha" in config:
             from .wolframalpha import WolframAlpha
+
             bot.calculation_api = WolframAlpha(
                 config["WolframAlpha"]["APIKey"], bot.logger
             )
@@ -252,6 +253,7 @@ class GPTBot:
         # Set up TrackingMore
         if "TrackingMore" in config:
             from .trackingmore import TrackingMore
+
             bot.parcel_api = TrackingMore(config["TrackingMore"]["APIKey"], bot.logger)
 
         # Set up the Matrix client
@@ -334,8 +336,11 @@ class GPTBot:
                 try:
                     event_type = event.source["content"]["msgtype"]
                 except KeyError:
-                    if event.__class__.__name__ in ("RoomMemberEvent", ):
-                        self.logger.log(f"Ignoring event of type {event.__class__.__name__}", "debug")
+                    if event.__class__.__name__ in ("RoomMemberEvent",):
+                        self.logger.log(
+                            f"Ignoring event of type {event.__class__.__name__}",
+                            "debug",
+                        )
                         continue
                     self.logger.log(f"Could not process event: {event}", "warning")
                     continue  # This is most likely not a message event
@@ -381,7 +386,7 @@ class GPTBot:
 
         try:
             encoding = tiktoken.encoding_for_model(model)
-        except:
+        except Exception:
             # TODO: Handle this more gracefully
             encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
@@ -601,7 +606,7 @@ class GPTBot:
                 )
             return
 
-        task = asyncio.create_task(self._event_callback(room, event))
+        asyncio.create_task(self._event_callback(room, event))
 
     def room_uses_timing(self, room: MatrixRoom):
         """Check if a room uses timing.
@@ -629,7 +634,7 @@ class GPTBot:
                 await callback(response, self)
 
     async def response_callback(self, response: Response):
-        task = asyncio.create_task(self._response_callback(response))
+        asyncio.create_task(self._response_callback(response))
 
     async def accept_pending_invites(self):
         """Accept all pending invites."""
@@ -736,7 +741,7 @@ class GPTBot:
             "url": content_uri,
         }
 
-        status = await self.matrix_client.room_send(room, "m.room.message", content)
+        await self.matrix_client.room_send(room, "m.room.message", content)
 
         self.logger.log("Sent image", "debug")
 
@@ -770,7 +775,7 @@ class GPTBot:
             "url": content_uri,
         }
 
-        status = await self.matrix_client.room_send(room, "m.room.message", content)
+        await self.matrix_client.room_send(room, "m.room.message", content)
 
         self.logger.log("Sent file", "debug")
 
@@ -1306,7 +1311,7 @@ class GPTBot:
                     chat_messages.append({"role": "system", "content": message_body})
 
         # Truncate messages to fit within the token limit
-        truncated_messages = self._truncate(
+        self._truncate(
             chat_messages[1:], self.max_tokens - 1, system_message=system_message
         )
 
