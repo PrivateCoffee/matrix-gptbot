@@ -3,7 +3,7 @@ from nio.rooms import MatrixRoom
 
 
 async def command_botinfo(room: MatrixRoom, event: RoomMessageText, bot):
-    logging("Showing bot info...")
+    bot.logger.log("Showing bot info...")
 
     body = f"""GPT Info:
 
