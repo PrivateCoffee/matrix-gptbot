@@ -1,5 +1,11 @@
 # Changelog
 
+### 0.3.13 (2024-05-20)
+
+- **Breaking Change**: The `ForceTools` configuration option behavior has changed. Instead of using a separate model for tools, the bot will now try to use the default chat model for tool requests, even if that model is not known to support tools.
+- Added `ToolModel` to OpenAI configuration to allow specifying a separate model for tool requests
+- Automatically resize context images to a default maximum of 2000x768 pixels before sending them to the AI model
+
 ### 0.3.12 (2024-05-17)
 
 - Added `ForceVision` to OpenAI configuration to allow third-party models to be used for image recognition

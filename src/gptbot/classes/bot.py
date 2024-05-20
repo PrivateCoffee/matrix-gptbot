@@ -29,11 +29,13 @@ from nio import (
     RoomMessageAudio,
     DownloadError,
     RoomGetStateError,
+    DiskDownloadResponse,
+    MemoryDownloadResponse,
 )
 from nio.store import SqliteStore
 
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 from configparser import ConfigParser
 from datetime import datetime
 from io import BytesIO
@@ -125,26 +127,6 @@ class GPTBot:
             bool: Whether to force the default system message to be included even if a custom room message is set. Defaults to False.
         """
         return self.config["GPTBot"].getboolean("ForceSystemMessage", False)
-
-    @property
-    def max_tokens(self) -> int:
-        """Maximum number of input tokens.
-
-        Returns:
-            int: The maximum number of input tokens. Defaults to 3000.
-        """
-        return self.config["OpenAI"].getint("MaxTokens", 3000)
-        # TODO: Move this to OpenAI class
-
-    @property
-    def max_messages(self) -> int:
-        """Maximum number of messages to consider as input.
-
-        Returns:
-            int: The maximum number of messages to consider as input. Defaults to 30.
-        """
-        return self.config["OpenAI"].getint("MaxMessages", 30)
-        # TODO: Move this to OpenAI class
 
     @property
     def operator(self) -> Optional[str]:
@@ -309,7 +291,7 @@ class GPTBot:
         ignore_notices: bool = True,
     ):
         messages = []
-        n = n or self.max_messages
+        n = n or self.chat_api.max_messages
         room_id = room.room_id if isinstance(room, MatrixRoom) else room
 
         self.logger.log(
@@ -378,7 +360,7 @@ class GPTBot:
         model: Optional[str] = None,
         system_message: Optional[str] = None,
     ):
-        max_tokens = max_tokens or self.max_tokens
+        max_tokens = max_tokens or self.chat_api.max_tokens
         model = model or self.chat_api.chat_model
         system_message = (
             self.default_system_message if system_message is None else system_message
@@ -1168,7 +1150,9 @@ class GPTBot:
                 return
 
         try:
-            last_messages = await self._last_n_messages(room.room_id, self.max_messages)
+            last_messages = await self._last_n_messages(
+                room.room_id, self.chat_api.max_messages
+            )
         except Exception as e:
             self.logger.log(f"Error getting last messages: {e}", "error")
             await self.send_message(
@@ -1271,7 +1255,27 @@ class GPTBot:
                     download = await self.download_file(image_url)
 
                     if download:
-                        encoded_url = f"data:{download.content_type};base64,{base64.b64encode(download.body).decode('utf-8')}"
+                        pil_image = Image.open(BytesIO(download.body))
+
+                        file_format = pil_image.format or "PNG"
+
+                        max_long_side = self.chat_api.max_image_long_side
+                        max_short_side = self.chat_api.max_image_short_side
+
+                        if max_long_side and max_short_side:
+                            if pil_image.width > pil_image.height:
+                                if pil_image.width > max_long_side:
+                                    pil_image.thumbnail((max_long_side, max_short_side))
+
+                            else:
+                                if pil_image.height > max_long_side:
+                                    pil_image.thumbnail((max_short_side, max_long_side))
+
+                        bio = BytesIO()
+
+                        pil_image.save(bio, format=file_format)
+
+                        encoded_url = f"data:{download.content_type};base64,{base64.b64encode(bio.getvalue()).decode('utf-8')}"
                         parent = (
                             chat_messages[-1]
                             if chat_messages
@@ -1312,7 +1316,9 @@ class GPTBot:
 
         # Truncate messages to fit within the token limit
         self._truncate(
-            chat_messages[1:], self.max_tokens - 1, system_message=system_message
+            chat_messages[1:],
+            self.chat_api.max_tokens - 1,
+            system_message=system_message,
         )
 
         # Check for a model override
@@ -1362,7 +1368,9 @@ class GPTBot:
 
         await self.matrix_client.room_typing(room.room_id, False)
 
-    async def download_file(self, mxc) -> Optional[bytes]:
+    async def download_file(
+        self, mxc
+    ) -> Union[DiskDownloadResponse, MemoryDownloadResponse]:
         """Download a file from the homeserver.
 
         Args:

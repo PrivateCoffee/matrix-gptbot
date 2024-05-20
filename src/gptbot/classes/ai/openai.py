@@ -98,6 +98,14 @@ class OpenAI(BaseAI):
         return self._config.getboolean("ForceTools", fallback=False)
 
     @property
+    def tool_model(self):
+        return self._config.get("ToolModel")
+
+    @property
+    def vision_model(self):
+        return self._config.get("VisionModel")
+
+    @property
     def emulate_tools(self):
         return self._config.getboolean("EmulateTools", fallback=False)
 
@@ -106,12 +114,26 @@ class OpenAI(BaseAI):
         # TODO: This should be model-specific
         return self._config.getint("MaxTokens", fallback=4000)
 
+    @property
+    def max_messages(self):
+        return self._config.getint("MaxMessages", fallback=30)
+
+    @property
+    def max_image_long_side(self):
+        return self._config.getint("MaxImageLongSide", fallback=2000)
+
+    @property
+    def max_image_short_side(self):
+        return self._config.getint("MaxImageShortSide", fallback=768)
+
+    def _is_tool_model(self, model: str) -> bool:
+        return model in ("gpt-3.5-turbo", "gpt-4-turbo", "gpt-4o")
+
+    def _is_vision_model(self, model: str) -> bool:
+        return model in ("gpt-4-turbo", "gpt-4o") or "vision" in model
+
     def supports_chat_images(self):
-        return (
-            "vision" in self.chat_model
-            or self.chat_model in ("gpt-4o",)
-            or self.force_vision
-        )
+        return self._is_vision_model(self.chat_model) or self.force_vision
 
     def json_decode(self, data):
         if data.startswith("```json\n"):
@@ -194,11 +216,15 @@ class OpenAI(BaseAI):
 
         original_messages = messages
 
-        # TODO: I believe more models support tools now, so this could be adapted
-        if allow_override and "gpt-3.5-turbo" not in original_model:
-            if self.force_tools:
+        if (
+            allow_override
+            and use_tools
+            and self.tool_model
+            and not (self._is_tool_model(chat_model) or self.force_tools)
+        ):
+            if self.tool_model:
                 self.logger.log("Overriding chat model to use tools")
-                chat_model = "gpt-3.5-turbo"
+                chat_model = self.tool_model
 
                 out_messages = []
 
@@ -225,8 +251,8 @@ class OpenAI(BaseAI):
             use_tools
             and self.emulate_tools
             and not self.force_tools
-            and "gpt-3.5-turbo" not in chat_model
-        ):  # TODO: This should be adapted to use tools with more models
+            and not self._is_tool_model(chat_model)
+        ):
             self.bot.logger.log("Using tool emulation mode.", "debug")
 
             messages = (
@@ -272,9 +298,10 @@ class OpenAI(BaseAI):
             "presence_penalty": self.presence_penalty,
         }
 
-        if "gpt-3.5-turbo" in chat_model and use_tools:
+        if (self._is_tool_model(chat_model) and use_tools) or self.force_tools:
             kwargs["tools"] = tools
 
+        # TODO: Look into this
         if "gpt-4" in chat_model:
             kwargs["max_tokens"] = self.max_tokens
 
@@ -685,10 +712,10 @@ Only the event_types mentioned above are allowed, you must not respond in any ot
 
         messages = [{"role": "system", "content": system_message}] + messages[1:]
 
-        if "vision" not in (chat_model := self.chat_model) and chat_model not in (
-            "gpt-4o",
-        ):
-            chat_model = "gpt-4o"
+        chat_model = self.chat_model
+
+        if not self._is_vision_model(chat_model):
+            chat_model = self.vision_model or "gpt-4o"
 
         chat_partial = partial(
             self.openai_api.chat.completions.create,
