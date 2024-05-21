@@ -31,6 +31,7 @@ from nio import (
     RoomGetStateError,
     DiskDownloadResponse,
     MemoryDownloadResponse,
+    LoginError,
 )
 from nio.store import SqliteStore
 
@@ -243,17 +244,24 @@ class GPTBot:
         assert "Matrix" in config, "Matrix config not found"
 
         homeserver = config["Matrix"]["Homeserver"]
-        bot.matrix_client = AsyncClient(homeserver)
 
-        if ("Password" in config["Matrix"]) and config.get("Matrix", "Password"):
-            await bot.matrix_client.login(password=config["Matrix"]["Password"])
+        if config.get("Matrix", "Password"):
+            if not config.get("Matrix", "UserID"):
+                raise Exception("Cannot log in: UserID not set in config")
+
+            bot.matrix_client = AsyncClient(homeserver, user=config["Matrix"]["UserID"])
+            login = await bot.matrix_client.login(password=config["Matrix"]["Password"])
+
+            if isinstance(login, LoginError):
+                raise Exception(f"Could not log in: {login.message}")
 
             config["Matrix"]["AccessToken"] = bot.matrix_client.access_token
-            config["Matrix"]["UserID"] = bot.matrix_client.user_id
             config["Matrix"]["DeviceID"] = bot.matrix_client.device_id
             config["Matrix"]["Password"] = ""
 
         else:
+            bot.matrix_client = AsyncClient(homeserver)
+
             bot.matrix_client.access_token = config["Matrix"]["AccessToken"]
             bot.matrix_client.user_id = config["Matrix"].get("UserID")
             bot.matrix_client.device_id = config["Matrix"].get("DeviceID")

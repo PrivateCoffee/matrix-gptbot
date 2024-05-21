@@ -1,5 +1,9 @@
 # Changelog
 
+### 0.3.14 (2024-05-21)
+
+- Fixed issue in handling of login credentials, added error handling for login failures
+
 ### 0.3.13 (2024-05-20)
 
 - **Breaking Change**: The `ForceTools` configuration option behavior has changed. Instead of using a separate model for tools, the bot will now try to use the default chat model for tool requests, even if that model is not known to support tools.
