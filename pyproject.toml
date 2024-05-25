@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.14"
+version = "0.3.15"
 
 authors = [
   { name = "Kumi Mitterer", email = "gptbot@kumi.email" },
@@ -39,12 +39,14 @@ dependencies = [
 [project.optional-dependencies]
 openai = ["openai>=1.2", "pydub"]
 
+google = ["google-generativeai"]
+
 wolframalpha = ["wolframalpha"]
 
 trackingmore = ["trackingmore-api-tool"]
 
 all = [
-  "matrix-gptbot[openai,wolframalpha,trackingmore]",
+  "matrix-gptbot[openai,wolframalpha,trackingmore,google]",
   "geopy",
   "beautifulsoup4",
 ]

@@ -24,9 +24,6 @@ from nio import (
     RoomVisibility,
     RoomCreateError,
     RoomMessageMedia,
-    RoomMessageImage,
-    RoomMessageFile,
-    RoomMessageAudio,
     DownloadError,
     RoomGetStateError,
     DiskDownloadResponse,
@@ -43,7 +40,6 @@ from io import BytesIO
 from pathlib import Path
 from contextlib import closing
 
-import base64
 import uuid
 import traceback
 import json
@@ -361,61 +357,6 @@ class GPTBot:
 
         # Reverse the list so that messages are in chronological order
         return messages[::-1]
-
-    def _truncate(
-        self,
-        messages: list,
-        max_tokens: Optional[int] = None,
-        model: Optional[str] = None,
-        system_message: Optional[str] = None,
-    ):
-        max_tokens = max_tokens or self.chat_api.max_tokens
-        model = model or self.chat_api.chat_model
-        system_message = (
-            self.default_system_message if system_message is None else system_message
-        )
-
-        try:
-            encoding = tiktoken.encoding_for_model(model)
-        except Exception:
-            # TODO: Handle this more gracefully
-            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
-
-        total_tokens = 0
-
-        system_message_tokens = (
-            0 if not system_message else (len(encoding.encode(system_message)) + 1)
-        )
-
-        if system_message_tokens > max_tokens:
-            self.logger.log(
-                f"System message is too long to fit within token limit ({system_message_tokens} tokens) - cannot proceed",
-                "error",
-            )
-            return []
-
-        total_tokens += system_message_tokens
-
-        total_tokens = len(system_message) + 1
-        truncated_messages = []
-
-        for message in [messages[0]] + list(reversed(messages[1:])):
-            content = (
-                message["content"]
-                if isinstance(message["content"], str)
-                else (
-                    message["content"][0]["text"]
-                    if isinstance(message["content"][0].get("text"), str)
-                    else ""
-                )
-            )
-            tokens = len(encoding.encode(content)) + 1
-            if total_tokens + tokens > max_tokens:
-                break
-            total_tokens += tokens
-            truncated_messages.append(message)
-
-        return [truncated_messages[0]] + list(reversed(truncated_messages[1:]))
 
     async def _get_device_id(self) -> str:
         """Guess the device ID of the bot.
@@ -1171,172 +1112,8 @@ class GPTBot:
 
         system_message = self.get_system_message(room)
 
-        chat_messages = [{"role": "system", "content": system_message}]
-
-        last_messages = last_messages + [event]
-
-        for message in last_messages:
-            if isinstance(message, (RoomMessageNotice, RoomMessageText)):
-                role = (
-                    "assistant"
-                    if message.sender == self.matrix_client.user_id
-                    else "user"
-                )
-                if message == event or (not message.event_id == event.event_id):
-                    message_body = (
-                        message.body
-                        if not self.chat_api.supports_chat_images()
-                        else [{"type": "text", "text": message.body}]
-                    )
-                    chat_messages.append({"role": role, "content": message_body})
-
-            elif isinstance(message, RoomMessageAudio) or (
-                isinstance(message, RoomMessageFile) and message.body.endswith(".mp3")
-            ):
-                role = (
-                    "assistant"
-                    if message.sender == self.matrix_client.user_id
-                    else "user"
-                )
-                if message == event or (not message.event_id == event.event_id):
-                    if self.room_uses_stt(room):
-                        try:
-                            download = await self.download_file(
-                                message.url, raise_error=True
-                            )
-                            message_text = await self.stt_api.speech_to_text(
-                                download.body
-                            )
-                        except Exception as e:
-                            self.logger.log(
-                                f"Error generating text from audio: {e}", "error"
-                            )
-                            message_text = message.body
-                    else:
-                        message_text = message.body
-
-                    message_body = (
-                        message_text
-                        if not self.chat_api.supports_chat_images()
-                        else [{"type": "text", "text": message_text}]
-                    )
-                    chat_messages.append({"role": role, "content": message_body})
-
-            elif isinstance(message, RoomMessageFile):
-                try:
-                    download = await self.download_file(message.url, raise_error=True)
-                    if download:
-                        try:
-                            text = download.body.decode("utf-8")
-                        except UnicodeDecodeError:
-                            text = None
-
-                        if text:
-                            role = (
-                                "assistant"
-                                if message.sender == self.matrix_client.user_id
-                                else "user"
-                            )
-                            if message == event or (
-                                not message.event_id == event.event_id
-                            ):
-                                message_body = (
-                                    text
-                                    if not self.chat_api.supports_chat_images()
-                                    else [{"type": "text", "text": text}]
-                                )
-                                chat_messages.append(
-                                    {"role": role, "content": message_body}
-                                )
-
-                except Exception as e:
-                    self.logger.log(f"Error generating text from file: {e}", "error")
-                    message_body = (
-                        message.body
-                        if not self.chat_api.supports_chat_images()
-                        else [{"type": "text", "text": message.body}]
-                    )
-                    chat_messages.append({"role": "system", "content": message_body})
-
-            elif self.chat_api.supports_chat_images() and isinstance(
-                message, RoomMessageImage
-            ):
-                try:
-                    image_url = message.url
-                    download = await self.download_file(image_url, raise_error=True)
-
-                    if download:
-                        pil_image = Image.open(BytesIO(download.body))
-
-                        file_format = pil_image.format or "PNG"
-
-                        max_long_side = self.chat_api.max_image_long_side
-                        max_short_side = self.chat_api.max_image_short_side
-
-                        if max_long_side and max_short_side:
-                            if pil_image.width > pil_image.height:
-                                if pil_image.width > max_long_side:
-                                    pil_image.thumbnail((max_long_side, max_short_side))
-
-                            else:
-                                if pil_image.height > max_long_side:
-                                    pil_image.thumbnail((max_short_side, max_long_side))
-
-                        bio = BytesIO()
-
-                        pil_image.save(bio, format=file_format)
-
-                        encoded_url = f"data:{download.content_type};base64,{base64.b64encode(bio.getvalue()).decode('utf-8')}"
-                        parent = (
-                            chat_messages[-1]
-                            if chat_messages
-                            and chat_messages[-1]["role"]
-                            == (
-                                "assistant"
-                                if message.sender == self.matrix_client.user_id
-                                else "user"
-                            )
-                            else None
-                        )
-
-                        if not parent:
-                            chat_messages.append(
-                                {
-                                    "role": (
-                                        "assistant"
-                                        if message.sender == self.matrix_client.user_id
-                                        else "user"
-                                    ),
-                                    "content": [],
-                                }
-                            )
-                            parent = chat_messages[-1]
-
-                        parent["content"].append(
-                            {"type": "image_url", "image_url": {"url": encoded_url}}
-                        )
-
-                except Exception as e:
-                    if isinstance(e, DownloadException):
-                        self.send_message(
-                            room,
-                            f"Could not process image due to download error: {e.args[0]}",
-                            True,
-                        )
-
-                    self.logger.log(f"Error generating image from file: {e}", "error")
-                    message_body = (
-                        message.body
-                        if not self.chat_api.supports_chat_images()
-                        else [{"type": "text", "text": message.body}]
-                    )
-                    chat_messages.append({"role": "system", "content": message_body})
-
-        # Truncate messages to fit within the token limit
-        self._truncate(
-            chat_messages[1:],
-            self.chat_api.max_tokens - 1,
-            system_message=system_message,
+        chat_messages = await self.chat_api.prepare_messages(
+            last_messages, system_message
         )
 
         # Check for a model override
@@ -1382,7 +1159,7 @@ class GPTBot:
                         room, "Something went wrong generating audio file.", True
                     )
 
-            message = await self.send_message(room, response)
+            await self.send_message(room, response)
 
         await self.matrix_client.room_typing(room.room_id, False)
 

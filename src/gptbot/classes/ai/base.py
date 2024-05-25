@@ -4,6 +4,8 @@ import asyncio
 from functools import partial
 from typing import Any, AsyncGenerator, Dict, Optional, Mapping
 
+from nio import Event
+
 
 class AttributeDictionary(dict):
     def __init__(self, *args, **kwargs):
@@ -23,6 +25,29 @@ class BaseAI:
     @property
     def chat_api(self) -> str:
         return self.chat_model
+
+    async def prepare_messages(
+        self, event: Event, messages: list[Any], system_message: Optional[str] = None
+    ) -> list[Any]:
+        """A helper method to prepare messages for the AI.
+
+        This converts a list of Matrix messages into whatever format the AI requires.
+
+        Args:
+            event (Event): The event that triggered the message generation. Generally a text message from a user.
+            messages (list[Dict[str, str]]): The messages to prepare. Generally of type RoomMessage*.
+            system_message (Optional[str], optional): A system message to include. Defaults to None.
+
+        Returns:
+            list[Any]: The prepared messages in the format the AI requires.
+
+        Raises:
+            NotImplementedError: If the method is not implemented in the subclass.
+        """
+
+        raise NotImplementedError(
+            "Implementations of BaseAI must implement prepare_messages."
+        )
 
     async def _request_with_retries(
         self, request: partial, attempts: int = 5, retry_interval: int = 2
