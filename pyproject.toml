@@ -7,10 +7,10 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.15"
+version = "0.3.16"
 
 authors = [
-  { name = "Kumi Mitterer", email = "gptbot@kumi.email" },
+  { name = "Kumi", email = "gptbot@kumi.email" },
   { name = "Private.coffee Team", email = "support@private.coffee" },
 ]
 
