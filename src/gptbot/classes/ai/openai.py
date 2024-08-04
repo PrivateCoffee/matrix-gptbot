@@ -175,6 +175,8 @@ class OpenAI(BaseAI):
 
         self.logger.log(f"Incoming messages: {messages}", "debug")
 
+        messages.append(event)
+
         for message in messages:
             if isinstance(message, (RoomMessageNotice, RoomMessageText)):
                 role = (
