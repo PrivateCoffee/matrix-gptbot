@@ -393,7 +393,7 @@ class OpenAI(BaseAI):
         # Truncate messages to fit within the token limit
         self._truncate(
             messages=chat_messages,
-            max_tokens=self.chat_api.max_tokens - 1,
+            max_tokens=self.max_tokens - 1,
             system_message=system_message,
         )
 
