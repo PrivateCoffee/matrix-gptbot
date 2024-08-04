@@ -173,6 +173,8 @@ class OpenAI(BaseAI):
     ) -> List[Any]:
         chat_messages = []
 
+        self.logger.log(f"Incoming messages: {messages}", "debug")
+
         for message in messages:
             if isinstance(message, (RoomMessageNotice, RoomMessageText)):
                 role = (
@@ -390,6 +392,8 @@ class OpenAI(BaseAI):
                     )
                     chat_messages.append({"role": "system", "content": message_body})
 
+        self.logger.log(f"Prepared messages: {chat_messages}", "debug")
+
         # Truncate messages to fit within the token limit
         self._truncate(
             messages=chat_messages,
@@ -449,6 +453,8 @@ class OpenAI(BaseAI):
 
         total_tokens = len(system_message) + 1
         truncated_messages = []
+
+        self.logger.log(f"Messages: {messages}", "debug")
 
         for message in [messages[0]] + list(reversed(messages[1:])):
             content = (

@@ -1103,6 +1103,7 @@ class GPTBot:
             last_messages = await self._last_n_messages(
                 room.room_id, self.chat_api.max_messages
             )
+            self.logger.log(f"Last messages: {last_messages}", "debug")
         except Exception as e:
             self.logger.log(f"Error getting last messages: {e}", "error")
             await self.send_message(
@@ -1113,7 +1114,7 @@ class GPTBot:
         system_message = self.get_system_message(room)
 
         chat_messages = await self.chat_api.prepare_messages(
-            last_messages, system_message
+            event, last_messages, system_message
         )
 
         # Check for a model override
@@ -1158,6 +1159,11 @@ class GPTBot:
                     await self.send_message(
                         room, "Something went wrong generating audio file.", True
                     )
+                    
+                    if self.debug:
+                        await self.send_message(
+                            room, f"Error: {e}\n\n```\n{traceback.format_exc()}\n```", True
+                        )
 
             await self.send_message(room, response)
 
