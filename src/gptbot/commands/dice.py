@@ -9,7 +9,7 @@ async def command_dice(room: MatrixRoom, event: RoomMessageText, bot):
 
     try:
         sides = int(event.body.split()[2])
-    except ValueError:
+    except (ValueError, IndexError):
         sides = 6
 
     if sides < 2:
