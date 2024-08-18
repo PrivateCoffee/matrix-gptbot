@@ -241,8 +241,8 @@ class GPTBot:
 
         homeserver = config["Matrix"]["Homeserver"]
 
-        if config.get("Matrix", "Password"):
-            if not config.get("Matrix", "UserID"):
+        if config.get("Matrix", "Password", fallback=""):
+            if not config.get("Matrix", "UserID", fallback=""):
                 raise Exception("Cannot log in: UserID not set in config")
 
             bot.matrix_client = AsyncClient(homeserver, user=config["Matrix"]["UserID"])
