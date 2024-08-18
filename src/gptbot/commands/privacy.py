@@ -11,7 +11,7 @@ async def command_privacy(room: MatrixRoom, event: RoomMessageText, bot):
         body += "- For chat requests: " + f"{bot.chat_api.operator}" + "\n"
     if bot.image_api:
         body += "- For image generation requests (!gptbot imagine): " + f"{bot.image_api.operator}" + "\n"
-    if bot.calculate_api:
-        body += "- For calculation requests (!gptbot calculate): " + f"{bot.calculate_api.operator}" + "\n"
+    if bot.calculation_api:
+        body += "- For calculation requests (!gptbot calculate): " + f"{bot.calculation_api.operator}" + "\n"
 
     await bot.send_message(room, body, True)
