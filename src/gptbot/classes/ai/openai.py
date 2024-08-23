@@ -19,6 +19,7 @@ from nio import (
     RoomMessageFile,
     RoomMessageImage,
     RoomMessageVideo,
+    Event,
 )
 
 from ..logging import Logger
@@ -169,7 +170,11 @@ class OpenAI(BaseAI):
             return False
 
     async def prepare_messages(
-        self, event, messages: List[Dict[str, str]], system_message=None
+        self,
+        event: Event,
+        messages: List[Dict[str, str]],
+        system_message=None,
+        room=None,
     ) -> List[Any]:
         chat_messages = []
 
@@ -201,7 +206,7 @@ class OpenAI(BaseAI):
                     else "user"
                 )
                 if message == event or (not message.event_id == event.event_id):
-                    if self.room_uses_stt(event.room_id):
+                    if room and self.room_uses_stt(room):
                         try:
                             download = await self.bot.download_file(
                                 message.url, raise_error=True
@@ -319,9 +324,9 @@ class OpenAI(BaseAI):
                         )
 
                 except Exception as e:
-                    if isinstance(e, DownloadException):
+                    if room and isinstance(e, DownloadException):
                         self.bot.send_message(
-                            event.room_id,
+                            room,
                             f"Could not process image due to download error: {e.args[0]}",
                             True,
                         )
@@ -379,9 +384,9 @@ class OpenAI(BaseAI):
                         )
 
                 except Exception as e:
-                    if isinstance(e, DownloadException):
+                    if room and isinstance(e, DownloadException):
                         self.bot.send_message(
-                            event.room_id,
+                            room,
                             f"Could not process video due to download error: {e.args[0]}",
                             True,
                         )
