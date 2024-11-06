@@ -487,11 +487,15 @@ class OpenAI(BaseAI):
             ),
         }
 
-        return (
+        final_messages = (
             [system_message_dict]
             + [truncated_messages[0]]
             + list(reversed(truncated_messages[1:]))
         )
+
+        self.logger.log(f"Truncated messages: {final_messages}", "debug")
+
+        return final_messages
 
     async def generate_chat_response(
         self,
