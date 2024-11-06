@@ -179,6 +179,7 @@ class OpenAI(BaseAI):
         chat_messages = []
 
         self.logger.log(f"Incoming messages: {messages}", "debug")
+        self.logger.log(f"System message: {system_message}", "debug")
 
         messages.append(event)
 
