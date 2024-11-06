@@ -488,7 +488,7 @@ class OpenAI(BaseAI):
         }
 
         return (
-            system_message_dict
+            [system_message_dict]
             + [truncated_messages[0]]
             + list(reversed(truncated_messages[1:]))
         )
