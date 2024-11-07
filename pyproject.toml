@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "matrix-gptbot"
-version = "0.3.20"
+version = "0.3.21"
 
 authors = [
   { name = "Kumi", email = "gptbot@kumi.email" },
