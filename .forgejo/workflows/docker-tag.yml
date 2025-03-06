@@ -9,7 +9,7 @@ jobs:
   docker:
     name: Docker Build and Push to Docker Hub
     container:
-      image: node:20-bookworm
+      image: node:22-bookworm
     steps:
       - name: Install dependencies
         run: |
